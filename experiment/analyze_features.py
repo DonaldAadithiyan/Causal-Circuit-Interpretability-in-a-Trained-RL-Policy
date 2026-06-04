@@ -108,7 +108,7 @@ def main():
 
     for start in range(0, n, batch_size):
         end = min(start + batch_size, n)
-        x = torch.from_numpy((acts_raw[start:end] - mean) / std).to(device)
+        x = torch.from_numpy(((acts_raw[start:end] - mean) / std).astype(np.float32)).to(device)
         with torch.no_grad():
             h = sae.get_feature_activations(x)
         all_features[start:end] = h.cpu().numpy()
@@ -171,10 +171,16 @@ def main():
             rew_corr = 0.0
             act_corr_max = 0.0
 
-        # Goal spatial correlation: max mean activation when goal is in right half (x > 4)
-        goal_right_mask = goal_pos[:, 0] > 4
-        goal_spatial_corr = float(np.mean(feat_acts[goal_right_mask]) - np.mean(feat_acts[~goal_right_mask])) \
-            if goal_right_mask.sum() > 10 and (~goal_right_mask).sum() > 10 else 0.0
+        # Agent-goal proximity bias: activation when agent is near goal vs far
+        # Training goal is fixed at (6,4); use Manhattan distance to that position
+        FIXED_GOAL = np.array([6, 4])
+        agent_goal_dist = np.abs(agent_pos - FIXED_GOAL).sum(axis=1)  # Manhattan distance
+        near_threshold = np.percentile(agent_goal_dist, 25)  # bottom 25% = near goal
+        near_goal_mask = agent_goal_dist <= near_threshold
+        far_goal_mask = agent_goal_dist > np.percentile(agent_goal_dist, 75)
+        agent_near_goal_bias = float(
+            np.mean(feat_acts[near_goal_mask]) - np.mean(feat_acts[far_goal_mask])
+        ) if near_goal_mask.sum() > 5 and far_goal_mask.sum() > 5 else 0.0
 
         feature_stats[int(feat_idx)] = {
             "rank": int(rank),
@@ -183,8 +189,8 @@ def main():
             "max_activation": float(feat_acts.max()),
             "reward_correlation": float(rew_corr),
             "action_correlation_max": float(act_corr_max),
-            "goal_spatial_right_bias": float(goal_spatial_corr),
-            "label": "unknown",  # to be filled manually or by heuristic
+            "agent_near_goal_bias": float(agent_near_goal_bias),
+            "label": "unknown",
         }
 
         if rank < 10:
@@ -193,23 +199,27 @@ def main():
                 f"- freq: {freq[feat_idx]:.4f}\n"
                 f"- reward_corr: {rew_corr:.4f}\n"
                 f"- action_corr: {act_corr_max:.4f}\n"
-                f"- goal_right_bias: {goal_spatial_corr:.4f}",
+                f"- agent_near_goal_bias: {agent_near_goal_bias:.4f}",
             )
 
     # Auto-label by heuristics
     for feat_idx, stats in feature_stats.items():
         r = stats["reward_correlation"]
-        g = stats["goal_spatial_right_bias"]
+        g = stats["agent_near_goal_bias"]  # high = activates more when agent near goal
         a = stats["action_correlation_max"]
         f = stats["activation_frequency"]
 
-        if r > 0.15 and g > 0.05:
+        if r > 0.1 and g > 0.05:
+            # Activates more near goal AND correlates with reward → goal-tracking feature
             stats["label"] = "coin_tracking"
-        elif g < -0.05 and f > 0.1:
+        elif g > 0.05 and abs(r) < 0.05:
+            # Activates near goal position but low reward correlation → proxy (spurious cue)
             stats["label"] = "proxy_position"
         elif a > 0.2 and abs(r) < 0.05:
+            # Strong action correlation but weak reward correlation → action-spurious
             stats["label"] = "action_spurious"
         elif f > 0.5:
+            # Very frequently active → background texture / positional
             stats["label"] = "background_texture"
         elif f < 0.05:
             stats["label"] = "rare_event"

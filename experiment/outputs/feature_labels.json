@@ -1,0 +1,502 @@
+{
+  "790": {
+    "rank": 0,
+    "activation_frequency": 0.3323,
+    "mean_activation": 0.658094048500061,
+    "max_activation": 2.5150504112243652,
+    "reward_correlation": -0.2320082190044502,
+    "action_correlation_max": 0.6531924682236937,
+    "agent_near_goal_bias": 0.7004114985466003,
+    "label": "proxy_position"
+  },
+  "370": {
+    "rank": 1,
+    "activation_frequency": 0.3106,
+    "mean_activation": 0.6408198475837708,
+    "max_activation": 2.1475296020507812,
+    "reward_correlation": -0.22774569357854774,
+    "action_correlation_max": 0.2957914395849571,
+    "agent_near_goal_bias": -0.5873522758483887,
+    "label": "unknown"
+  },
+  "933": {
+    "rank": 2,
+    "activation_frequency": 0.25301,
+    "mean_activation": 0.23188363015651703,
+    "max_activation": 1.7812659740447998,
+    "reward_correlation": 0.9279751044009757,
+    "action_correlation_max": 0.1455856994786249,
+    "agent_near_goal_bias": 0.46382227540016174,
+    "label": "coin_tracking"
+  },
+  "151": {
+    "rank": 3,
+    "activation_frequency": 0.25301,
+    "mean_activation": 0.532963216304779,
+    "max_activation": 2.2277793884277344,
+    "reward_correlation": 0.5301854693751841,
+    "action_correlation_max": 0.3261252141189282,
+    "agent_near_goal_bias": 0.5118576884269714,
+    "label": "coin_tracking"
+  },
+  "438": {
+    "rank": 4,
+    "activation_frequency": 0.25301,
+    "mean_activation": 0.46150586009025574,
+    "max_activation": 2.2457990646362305,
+    "reward_correlation": 0.7419344827071479,
+    "action_correlation_max": 0.21847791328092342,
+    "agent_near_goal_bias": 0.5847815871238708,
+    "label": "coin_tracking"
+  },
+  "17": {
+    "rank": 5,
+    "activation_frequency": 0.24236,
+    "mean_activation": 0.5295892357826233,
+    "max_activation": 2.6441755294799805,
+    "reward_correlation": 0.4099738220511106,
+    "action_correlation_max": 0.743238227153082,
+    "agent_near_goal_bias": 1.1775192022323608,
+    "label": "coin_tracking"
+  },
+  "58": {
+    "rank": 6,
+    "activation_frequency": 0.2395,
+    "mean_activation": 0.4857286214828491,
+    "max_activation": 51.956993103027344,
+    "reward_correlation": -0.17931815594009884,
+    "action_correlation_max": 0.2731068583710991,
+    "agent_near_goal_bias": 0.0023104832507669926,
+    "label": "unknown"
+  },
+  "707": {
+    "rank": 7,
+    "activation_frequency": 0.23947,
+    "mean_activation": 0.520630419254303,
+    "max_activation": 36.760318756103516,
+    "reward_correlation": -0.18809417166136003,
+    "action_correlation_max": 0.3069018004510816,
+    "agent_near_goal_bias": -1.0791386365890503,
+    "label": "unknown"
+  },
+  "516": {
+    "rank": 8,
+    "activation_frequency": 0.23945,
+    "mean_activation": 0.5348420143127441,
+    "max_activation": 2.4620182514190674,
+    "reward_correlation": -0.18898440525223786,
+    "action_correlation_max": 0.34908837385707847,
+    "agent_near_goal_bias": -0.9669888019561768,
+    "label": "unknown"
+  },
+  "150": {
+    "rank": 9,
+    "activation_frequency": 0.23942,
+    "mean_activation": 0.39807388186454773,
+    "max_activation": 1.9136918783187866,
+    "reward_correlation": -0.1885259640928933,
+    "action_correlation_max": 0.26021535658995926,
+    "agent_near_goal_bias": 0.4404788613319397,
+    "label": "proxy_position"
+  },
+  "917": {
+    "rank": 10,
+    "activation_frequency": 0.22894,
+    "mean_activation": 0.4665753245353699,
+    "max_activation": 53.99293899536133,
+    "reward_correlation": -0.12876456745912385,
+    "action_correlation_max": 0.8525660902531479,
+    "agent_near_goal_bias": 1.0322805643081665,
+    "label": "proxy_position"
+  },
+  "1001": {
+    "rank": 11,
+    "activation_frequency": 0.22876,
+    "mean_activation": 0.4889770448207855,
+    "max_activation": 2.6727218627929688,
+    "reward_correlation": -0.1765985949650194,
+    "action_correlation_max": 0.7871576729150267,
+    "agent_near_goal_bias": 0.7443211674690247,
+    "label": "proxy_position"
+  },
+  "536": {
+    "rank": 12,
+    "activation_frequency": 0.22068,
+    "mean_activation": 0.41106897592544556,
+    "max_activation": 66.26451873779297,
+    "reward_correlation": 0.6560901385818056,
+    "action_correlation_max": 0.16873194756651613,
+    "agent_near_goal_bias": -0.31856173276901245,
+    "label": "unknown"
+  },
+  "736": {
+    "rank": 13,
+    "activation_frequency": 0.22065,
+    "mean_activation": 0.46782225370407104,
+    "max_activation": 2.1733343601226807,
+    "reward_correlation": 0.6201412919430308,
+    "action_correlation_max": 0.18078781650465706,
+    "agent_near_goal_bias": 0.539844810962677,
+    "label": "coin_tracking"
+  },
+  "21": {
+    "rank": 14,
+    "activation_frequency": 0.22065,
+    "mean_activation": 0.035762473940849304,
+    "max_activation": 0.2102685570716858,
+    "reward_correlation": 0.4033856050560846,
+    "action_correlation_max": 0.17244932461664972,
+    "agent_near_goal_bias": 0.03110899031162262,
+    "label": "unknown"
+  },
+  "481": {
+    "rank": 15,
+    "activation_frequency": 0.22063,
+    "mean_activation": 0.3202711343765259,
+    "max_activation": 1.7568597793579102,
+    "reward_correlation": 0.7860137747690871,
+    "action_correlation_max": 0.17526802494518506,
+    "agent_near_goal_bias": 0.7121092677116394,
+    "label": "coin_tracking"
+  },
+  "851": {
+    "rank": 16,
+    "activation_frequency": 0.20732,
+    "mean_activation": 0.1478157490491867,
+    "max_activation": 76.99112701416016,
+    "reward_correlation": -0.07912548324967832,
+    "action_correlation_max": 0.0815781097771759,
+    "agent_near_goal_bias": -0.5598860383033752,
+    "label": "unknown"
+  },
+  "755": {
+    "rank": 17,
+    "activation_frequency": 0.2071,
+    "mean_activation": 0.3933151066303253,
+    "max_activation": 56.88207244873047,
+    "reward_correlation": -0.15050568361368835,
+    "action_correlation_max": 0.18865028309486662,
+    "agent_near_goal_bias": -0.637432336807251,
+    "label": "unknown"
+  },
+  "672": {
+    "rank": 18,
+    "activation_frequency": 0.2071,
+    "mean_activation": 0.04162456467747688,
+    "max_activation": 40.057865142822266,
+    "reward_correlation": -0.05337002335159611,
+    "action_correlation_max": 0.29544522491193054,
+    "agent_near_goal_bias": 0.044145360589027405,
+    "label": "unknown"
+  },
+  "893": {
+    "rank": 19,
+    "activation_frequency": 0.20709,
+    "mean_activation": 0.44712600111961365,
+    "max_activation": 2.1717004776000977,
+    "reward_correlation": -0.17366947869069974,
+    "action_correlation_max": 0.22566165957001397,
+    "agent_near_goal_bias": -2.159090280532837,
+    "label": "unknown"
+  },
+  "46": {
+    "rank": 20,
+    "activation_frequency": 0.20709,
+    "mean_activation": 0.429916650056839,
+    "max_activation": 2.61991548538208,
+    "reward_correlation": -0.16660989146933144,
+    "action_correlation_max": 0.21647220449083288,
+    "agent_near_goal_bias": -2.075989007949829,
+    "label": "unknown"
+  },
+  "834": {
+    "rank": 21,
+    "activation_frequency": 0.20709,
+    "mean_activation": 0.17748816311359406,
+    "max_activation": 1.5187351703643799,
+    "reward_correlation": -0.13122338903942643,
+    "action_correlation_max": 0.1705475410646528,
+    "agent_near_goal_bias": -0.8570579886436462,
+    "label": "unknown"
+  },
+  "734": {
+    "rank": 22,
+    "activation_frequency": 0.20707,
+    "mean_activation": 0.043791357427835464,
+    "max_activation": 0.22761428356170654,
+    "reward_correlation": -0.17302900106222724,
+    "action_correlation_max": 0.22476329086331717,
+    "agent_near_goal_bias": -0.045290347188711166,
+    "label": "unknown"
+  },
+  "578": {
+    "rank": 23,
+    "activation_frequency": 0.20707,
+    "mean_activation": 0.04020464047789574,
+    "max_activation": 40.48456954956055,
+    "reward_correlation": -0.051093491315374565,
+    "action_correlation_max": 0.2960925165138702,
+    "agent_near_goal_bias": 0.05626283958554268,
+    "label": "unknown"
+  },
+  "396": {
+    "rank": 24,
+    "activation_frequency": 0.20706,
+    "mean_activation": 0.43069249391555786,
+    "max_activation": 2.5896029472351074,
+    "reward_correlation": -0.16743771078544073,
+    "action_correlation_max": 0.2175488547200133,
+    "agent_near_goal_bias": -0.1891920566558838,
+    "label": "unknown"
+  },
+  "416": {
+    "rank": 25,
+    "activation_frequency": 0.20706,
+    "mean_activation": 0.2523966431617737,
+    "max_activation": 1.4403960704803467,
+    "reward_correlation": -0.17015189412045323,
+    "action_correlation_max": 0.2211032610805706,
+    "agent_near_goal_bias": -0.4905734062194824,
+    "label": "unknown"
+  },
+  "589": {
+    "rank": 26,
+    "activation_frequency": 0.20706,
+    "mean_activation": 0.5341656804084778,
+    "max_activation": 3.5922935009002686,
+    "reward_correlation": -0.15890876443279336,
+    "action_correlation_max": 0.20634695648702256,
+    "agent_near_goal_bias": 0.8268465399742126,
+    "label": "proxy_position"
+  },
+  "320": {
+    "rank": 27,
+    "activation_frequency": 0.20706,
+    "mean_activation": 0.43342143297195435,
+    "max_activation": 2.406681537628174,
+    "reward_correlation": -0.17125210238163377,
+    "action_correlation_max": 0.2225308208771858,
+    "agent_near_goal_bias": -0.7936468124389648,
+    "label": "unknown"
+  },
+  "764": {
+    "rank": 28,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.5203856825828552,
+    "max_activation": 2.6303870677948,
+    "reward_correlation": -0.17341510964514043,
+    "action_correlation_max": 0.2252074617190046,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "34": {
+    "rank": 29,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.47169914841651917,
+    "max_activation": 2.4574389457702637,
+    "reward_correlation": -0.1729783390163513,
+    "action_correlation_max": 0.22464664982442853,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "807": {
+    "rank": 30,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.6360328793525696,
+    "max_activation": 3.2674715518951416,
+    "reward_correlation": -0.17320997570857233,
+    "action_correlation_max": 0.2251315744427811,
+    "agent_near_goal_bias": -1.4381037950515747,
+    "label": "unknown"
+  },
+  "444": {
+    "rank": 31,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.32471388578414917,
+    "max_activation": 1.6261472702026367,
+    "reward_correlation": -0.17350325342854217,
+    "action_correlation_max": 0.2255127653907941,
+    "agent_near_goal_bias": -0.7551854848861694,
+    "label": "unknown"
+  },
+  "54": {
+    "rank": 32,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.20697839558124542,
+    "max_activation": 1.8566917181015015,
+    "reward_correlation": -0.12508779848432633,
+    "action_correlation_max": 0.16231622801639276,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "169": {
+    "rank": 33,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.43025562167167664,
+    "max_activation": 2.3391592502593994,
+    "reward_correlation": -0.17194787813649665,
+    "action_correlation_max": 0.22326786314973193,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "101": {
+    "rank": 34,
+    "activation_frequency": 0.20705,
+    "mean_activation": 0.2571801245212555,
+    "max_activation": 2.3221213817596436,
+    "reward_correlation": -0.12425488259799951,
+    "action_correlation_max": 0.16150165276020723,
+    "agent_near_goal_bias": -0.08120787143707275,
+    "label": "unknown"
+  },
+  "38": {
+    "rank": 35,
+    "activation_frequency": 0.20704,
+    "mean_activation": 0.42654797434806824,
+    "max_activation": 2.278019428253174,
+    "reward_correlation": -0.1724358682392725,
+    "action_correlation_max": 0.2239927983134146,
+    "agent_near_goal_bias": 0.9484112858772278,
+    "label": "proxy_position"
+  },
+  "69": {
+    "rank": 36,
+    "activation_frequency": 0.20704,
+    "mean_activation": 0.19656464457511902,
+    "max_activation": 1.7238503694534302,
+    "reward_correlation": -0.12804440639498665,
+    "action_correlation_max": 0.16632864838188424,
+    "agent_near_goal_bias": 0.4370531737804413,
+    "label": "proxy_position"
+  },
+  "488": {
+    "rank": 37,
+    "activation_frequency": 0.20704,
+    "mean_activation": 0.5547802448272705,
+    "max_activation": 2.9440486431121826,
+    "reward_correlation": -0.17258990192024617,
+    "action_correlation_max": 0.22419288681929392,
+    "agent_near_goal_bias": 1.2335302829742432,
+    "label": "proxy_position"
+  },
+  "654": {
+    "rank": 38,
+    "activation_frequency": 0.20704,
+    "mean_activation": 0.5557661056518555,
+    "max_activation": 3.0395667552948,
+    "reward_correlation": -0.17176053404691818,
+    "action_correlation_max": 0.22311554465912928,
+    "agent_near_goal_bias": 1.2357220649719238,
+    "label": "proxy_position"
+  },
+  "117": {
+    "rank": 39,
+    "activation_frequency": 0.20703,
+    "mean_activation": 0.03283500298857689,
+    "max_activation": 0.17473749816417694,
+    "reward_correlation": -0.1725188602066425,
+    "action_correlation_max": 0.2241601930596534,
+    "agent_near_goal_bias": 0.040219735354185104,
+    "label": "unknown"
+  },
+  "924": {
+    "rank": 40,
+    "activation_frequency": 0.13603,
+    "mean_activation": 0.02525152824819088,
+    "max_activation": 15.129242897033691,
+    "reward_correlation": -0.04716128787347734,
+    "action_correlation_max": 0.1449244509534763,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "769": {
+    "rank": 41,
+    "activation_frequency": 0.136,
+    "mean_activation": 0.027225201949477196,
+    "max_activation": 39.293941497802734,
+    "reward_correlation": -0.02330153504257364,
+    "action_correlation_max": 0.06335425129279235,
+    "agent_near_goal_bias": 0.008736840449273586,
+    "label": "unknown"
+  },
+  "22": {
+    "rank": 42,
+    "activation_frequency": 0.13594,
+    "mean_activation": 0.02522020973265171,
+    "max_activation": 47.70062255859375,
+    "reward_correlation": -0.027898520967235444,
+    "action_correlation_max": 0.3081664642137712,
+    "agent_near_goal_bias": 0.004242412280291319,
+    "label": "action_spurious"
+  },
+  "313": {
+    "rank": 43,
+    "activation_frequency": 0.13594,
+    "mean_activation": 0.4402482807636261,
+    "max_activation": 84.91263580322266,
+    "reward_correlation": -0.1280370534075277,
+    "action_correlation_max": 0.4161961591666384,
+    "agent_near_goal_bias": 0.0039015673100948334,
+    "label": "unknown"
+  },
+  "806": {
+    "rank": 44,
+    "activation_frequency": 0.13593,
+    "mean_activation": 0.29914456605911255,
+    "max_activation": 31.994661331176758,
+    "reward_correlation": -0.131738099916578,
+    "action_correlation_max": 0.42861463059406624,
+    "agent_near_goal_bias": 0.0,
+    "label": "unknown"
+  },
+  "500": {
+    "rank": 45,
+    "activation_frequency": 0.13592,
+    "mean_activation": 0.3704318702220917,
+    "max_activation": 66.88156127929688,
+    "reward_correlation": -0.12434477408479164,
+    "action_correlation_max": 0.4189842976866277,
+    "agent_near_goal_bias": 0.0029741660691797733,
+    "label": "unknown"
+  },
+  "93": {
+    "rank": 46,
+    "activation_frequency": 0.13592,
+    "mean_activation": 0.025144994258880615,
+    "max_activation": 93.61534881591797,
+    "reward_correlation": -0.02021807568191644,
+    "action_correlation_max": 0.060322487927449826,
+    "agent_near_goal_bias": 0.004162995144724846,
+    "label": "unknown"
+  },
+  "39": {
+    "rank": 47,
+    "activation_frequency": 0.13592,
+    "mean_activation": 0.22825968265533447,
+    "max_activation": 107.35235595703125,
+    "reward_correlation": -0.10416103820424688,
+    "action_correlation_max": 0.3364459750810538,
+    "agent_near_goal_bias": 0.004773867782205343,
+    "label": "unknown"
+  },
+  "192": {
+    "rank": 48,
+    "activation_frequency": 0.13592,
+    "mean_activation": 0.1961405873298645,
+    "max_activation": 2.489046335220337,
+    "reward_correlation": -0.13477536074120175,
+    "action_correlation_max": 0.44000522059820846,
+    "agent_near_goal_bias": 0.00011068577441619709,
+    "label": "unknown"
+  },
+  "526": {
+    "rank": 49,
+    "activation_frequency": 0.13592,
+    "mean_activation": 0.2480732649564743,
+    "max_activation": 122.7203140258789,
+    "reward_correlation": -0.10196452842291003,
+    "action_correlation_max": 0.32916271980375406,
+    "agent_near_goal_bias": 0.005457268096506596,
+    "label": "unknown"
+  }
+}

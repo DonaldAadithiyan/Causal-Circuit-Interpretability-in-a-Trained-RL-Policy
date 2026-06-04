@@ -100,7 +100,7 @@ def main():
 
     # Mean activation of each feature in top32
     with torch.no_grad():
-        mean_acts = h_baseline[:, top32].mean(0).cpu().numpy()  # (32,)
+        mean_acts = h_baseline[:, top32].mean(0).detach().cpu().numpy()  # (32,)
 
     # ── Decoder cosine similarity matrix (feature-to-feature causal graph) ──
     # Edge (i→j) = |decoder_i · decoder_j| × mean_activation_i
@@ -110,7 +110,7 @@ def main():
 
     # Normalise columns
     W_norm = F.normalize(W_top, dim=1)  # (32, input_dim)
-    cosine_sim = torch.abs(W_norm @ W_norm.T).cpu().numpy()  # (32, 32)
+    cosine_sim = torch.abs(W_norm @ W_norm.T).detach().cpu().numpy()  # (32, 32)
 
     # Scale by mean activation
     mean_acts_col = mean_acts[:, None]  # (32, 1)

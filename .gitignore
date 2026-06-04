@@ -216,3 +216,30 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ── Experiment: large binary outputs (stay local only) ──────────────────────
+
+# Activation dataset (memmap arrays, >1 GB total)
+experiment/outputs/activations/
+
+# PNG plots (generated, large, reproducible)
+experiment/outputs/plots/
+
+# Model checkpoints (large binaries)
+experiment/outputs/checkpoints/*.zip
+experiment/outputs/checkpoints/*.pt
+experiment/outputs/checkpoints/ppo_impala_*
+
+# Numpy arrays
+experiment/outputs/graphs/*.npy
+
+# ── Experiment: important results (push these) ───────────────────────────────
+# These are small JSON/PT files that record the actual findings.
+# Explicitly un-ignore them even if parent dirs were ignored above:
+!experiment/outputs/checkpoints/eval_results.json
+!experiment/outputs/feature_labels.json
+!experiment/outputs/feature_index.json
+!experiment/outputs/hypothesis_verdicts.json
+!experiment/outputs/misgeneralization_results.json
+!experiment/outputs/sae_results.json
+!experiment/outputs/graphs/causal_graph.json

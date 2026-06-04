@@ -1,0 +1,7 @@
+{
+  "H1_SAE_interpretability": "PARTIAL/FAILED",
+  "H2_causal_graph_structure": "PARTIAL/FAILED",
+  "H3_pre_failure_signature": "STRONG",
+  "mean_k": 157.8,
+  "std_k": 80.25102283875681
+}

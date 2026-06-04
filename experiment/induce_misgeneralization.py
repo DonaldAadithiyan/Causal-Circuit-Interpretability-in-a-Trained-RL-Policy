@@ -348,7 +348,8 @@ def main():
     print(f"PHASE 5 COMPLETE")
     print(f"Mean k:  {mean_k:.2f} ± {std_k:.2f}")
     print(f"n meas:  {len(all_k_values)}/{len(all_episode_data)} episodes had detectable shift")
-    print(f"Seeds:   { {k: f\"{v['mean_k']:.1f}\" for k, v in seed_results.items()} }")
+    seed_summary = {k: round(v['mean_k'], 1) for k, v in seed_results.items()}
+    print(f"Seeds:   {seed_summary}")
     print(f"{'='*60}\n")
 
     gc.collect()

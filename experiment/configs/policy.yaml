@@ -1,0 +1,26 @@
+env:
+  size: 8
+  tile_size: 8
+  obs_size: 64
+
+ppo:
+  total_timesteps: 500000
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  learning_rate: 0.00025
+
+impala_cnn:
+  features_dim: 256
+
+training:
+  log_interval: 10000
+  save_freq: 100000
+  eval_episodes: 50
+  checkpoint_dir: outputs/checkpoints

@@ -1,0 +1,18 @@
+causal_graph:
+  n_observations: 100
+  top_k_features: 32
+  kl_threshold: 0.1
+  output_dir: outputs/graphs
+
+feature_analysis:
+  top_n_features: 50
+  max_act_images: 20
+  min_act_images: 20
+  plots_dir: outputs/plots
+
+misgeneralization:
+  n_episodes: 20
+  n_seeds: 3
+  goal_threshold: 0.5
+  proxy_threshold: 1.5
+  output_dir: outputs

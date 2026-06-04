@@ -1,0 +1,14 @@
+sae:
+  k: 32
+  hidden_factor: 4
+  learning_rate: 0.0001
+  batch_size: 256
+  max_epochs: 100
+  patience: 5
+
+collection:
+  n_rollout_steps: 100000
+
+validation_split: 0.1
+activation_dir: outputs/activations
+checkpoint_dir: outputs/checkpoints

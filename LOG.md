@@ -1,6 +1,95 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [15:24] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [15:24] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [15:24] [EXP3] START — Option B lambda sweep
+
+
+## [15:23] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [15:23] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [15:23] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [15:23] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [15:23] [EXP3] START — Option B lambda sweep
+
+
+## [15:11] [EXP2] COMPLETE
+- EAP r: 0.1461
+- mean k_act: 128.7 ± 93.8
+- mean k_graph: 128.7 ± 93.8
+- Exp1 reference k_activation: 157.8
+
+## [15:11] [EXP2] Seed 123 complete
+- mean_k_act: 122.8
+- mean_k_graph: 122.8
+
+## [15:11] [EXP2] Phase 4 — Seed 123: 10 test-dist episodes
+
+
+## [15:11] [EXP2] Seed 42 complete
+- mean_k_act: 142.0
+- mean_k_graph: 142.0
+
+## [15:11] [EXP2] Phase 4 — Seed 42: 10 test-dist episodes
+
+
+## [15:11] [EXP2] Seed 0 complete
+- mean_k_act: 121.2
+- mean_k_graph: 121.2
+
+## [15:11] [EXP2] Phase 4 — Seed 0: 10 test-dist episodes
+
+
+## [15:11] [EXP2] Training baseline
+- goal_sig: 0.3945
+- proxy_sig: 0.4353
+- mean V_total: 0.642988 (should be near 0)
+
+## [15:11] [EXP2] Phase 3 — Collecting training-distribution baseline
+
+
+## [15:11] [EXP2] Phase 2 — EAP validation complete
+- Pearson r (EAP vs patching): 0.1461
+- WARN (r<0.5) — EAP approximation weak
+
+## [15:11] [EXP2] Phase 2 — Validating EAP vs patching on 100 obs
+
+
+## [15:11] [EXP2] Phase 1 COMPLETE — G* saved
+- max_kl: 0.002235
+- pass_rate (>0.01): 0.00
+- goal_c_mean: 0.000696
+- proxy_c_mean: 0.000911
+- i3_threshold: 0.000348
+- spurious_set: [790, 370, 58, 707, 516, 150, 917, 1001, 851, 755, 672, 893, 46, 834, 734, 578, 396, 416, 589, 320, 764, 34, 807, 444]
+
+## [15:11] [EXP2] Phase 1 START — Build G* (200 obs, KL threshold 0.01)
+
+
 ## [14:42] EXPERIMENT COMPLETE
 - All 5 phases completed successfully
 - H1 (SAE interpretability): PARTIALLY SUPPORTED — 6 goal + 10 proxy features, but 785/1024 dead features

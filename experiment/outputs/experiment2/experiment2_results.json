@@ -1,0 +1,97 @@
+{
+  "eap_pearson_r": 0.1461102105157418,
+  "baseline_vtotal_mean": 0.6429876419272939,
+  "mean_k_activation": 128.66666666666666,
+  "std_k_activation": 93.76507286238778,
+  "mean_k_graph": 128.66666666666666,
+  "std_k_graph": 93.76507286238778,
+  "k_activation_exp1_reference": 157.8,
+  "n_k_act_measurements": 30,
+  "n_k_graph_measurements": 30,
+  "seed_results": {
+    "seed_0": {
+      "k_activation": [
+        200,
+        200,
+        2,
+        200,
+        200,
+        200,
+        5,
+        1,
+        200,
+        4
+      ],
+      "mean_k_activation": 121.2,
+      "k_graph": [
+        200,
+        200,
+        2,
+        200,
+        200,
+        200,
+        5,
+        1,
+        200,
+        4
+      ],
+      "mean_k_graph": 121.2
+    },
+    "seed_42": {
+      "k_activation": [
+        200,
+        200,
+        9,
+        3,
+        8,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "mean_k_activation": 142.0,
+      "k_graph": [
+        200,
+        200,
+        9,
+        3,
+        8,
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "mean_k_graph": 142.0
+    },
+    "seed_123": {
+      "k_activation": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        7,
+        200,
+        4,
+        8,
+        9
+      ],
+      "mean_k_activation": 122.8,
+      "k_graph": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        7,
+        200,
+        4,
+        8,
+        9
+      ],
+      "mean_k_graph": 122.8
+    }
+  }
+}

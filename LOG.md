@@ -1,6 +1,43 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [17:10] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [17:10] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [17:07] [EXP3] Starting: lam0.1_seed0
+- λ=0.1, seed=0
+
+## [17:07] [EXP3] baseline_seed123 seed=123 complete
+- test_fail_rate: 0.000
+- test_mean_reward: 1.0000
+- train_mean_reward: 1.0000 (forgetting: False)
+- elapsed: 56.0 min
+
+## [16:11] [EXP3] Starting: baseline_seed123
+- λ=0.0, seed=123
+
+## [16:11] [EXP3] baseline_seed42 seed=42 complete
+- test_fail_rate: 0.250
+- test_mean_reward: 0.7500
+- train_mean_reward: 0.0000 (forgetting: True)
+- elapsed: 23.6 min
+
+## [15:48] [EXP3] Starting: baseline_seed42
+- λ=0.0, seed=42
+
+## [15:48] [EXP3] baseline_seed0 seed=0 complete
+- test_fail_rate: 0.250
+- test_mean_reward: 0.7500
+- train_mean_reward: 1.0000 (forgetting: False)
+- elapsed: 23.4 min
+
 ## [15:24] [EXP3] Starting: baseline_seed0
 - λ=0.0, seed=0
 

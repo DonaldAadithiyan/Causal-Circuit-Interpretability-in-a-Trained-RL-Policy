@@ -13,7 +13,6 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback
-from stable_baselines3.common.evaluation import evaluate_policy
 
 from models.impala_cnn import ImpalaCNNExtractor
 from envs.coin_env import make_env
@@ -68,7 +67,7 @@ def evaluate(model, goal_fixed: bool, n_episodes: int = 50, seed: int = 42):
         done = False
         while not done:
             action, _ = model.predict(obs, deterministic=True)
-            obs, r, term, trunc, info = env.step(action)
+            obs, _, term, trunc, info = env.step(action)
             done = term or trunc
         rewards.append(info["episode"]["r"])
     env.close()
@@ -142,7 +141,6 @@ def main():
     model.learn(
         total_timesteps=ppo_cfg["total_timesteps"],
         callback=[checkpoint_cb, reward_cb],
-        progress_bar=True,
     )
     elapsed = time.time() - t0
 

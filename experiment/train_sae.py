@@ -67,7 +67,7 @@ def collect_activations(model, n_steps: int = 100_000):
     # Hook to capture features_extractor output
     captured = {}
 
-    def hook_fn(module, inp, out):
+    def hook_fn(_module, _inp, out):
         captured["feat"] = out.detach().cpu()
 
     handle = model.policy.features_extractor.register_forward_hook(hook_fn)
@@ -81,10 +81,6 @@ def collect_activations(model, n_steps: int = 100_000):
 
     t0 = time.time()
     while idx < n_steps:
-        obs_tensor = torch.from_numpy(obs).float().unsqueeze(0) / 255.0
-        # SB3 expects (N, C, H, W)
-        obs_tensor = obs_tensor.permute(0, 3, 1, 2).to(next(model.policy.parameters()).device)
-
         with torch.no_grad():
             action, _ = model.predict(obs, deterministic=False)
 

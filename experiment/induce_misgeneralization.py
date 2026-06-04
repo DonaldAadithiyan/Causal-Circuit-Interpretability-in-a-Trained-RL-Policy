@@ -64,14 +64,8 @@ def run_episode(model, sae, env, mean, std, goal_features, proxy_features, max_s
     step = 0
 
     while not done and step < max_steps:
+        # Hook fires automatically inside model.predict()
         action, _ = model.predict(obs, deterministic=True)
-        obs_tensor = torch.from_numpy(obs).float().unsqueeze(0) / 255.0
-        obs_tensor = obs_tensor.permute(0, 3, 1, 2)
-
-        # Trigger hook
-        with torch.no_grad():
-            _ = model.policy.features_extractor(obs_tensor.to(next(model.policy.parameters()).device))
-
         feat_raw = captured["feat"].squeeze(0).numpy()
         feat_norm = (feat_raw - mean) / std
 

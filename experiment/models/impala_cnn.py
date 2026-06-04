@@ -81,8 +81,9 @@ class ImpalaCNNExtractor(BaseFeaturesExtractor):
 
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
         super().__init__(observation_space, features_dim)
-        h, w, c = observation_space.shape  # SB3 stores (H, W, C)
-        self.cnn = ImpalaCNN(obs_shape=(c, h, w), hidden_size=features_dim)
+        # SB3 uses VecTransposeImage so obs_space is (C, H, W) by the time it reaches here
+        obs_shape = observation_space.shape  # (C, H, W)
+        self.cnn = ImpalaCNN(obs_shape=obs_shape, hidden_size=features_dim)
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
         # SB3 passes (N, C, H, W) float32 in [0,1]

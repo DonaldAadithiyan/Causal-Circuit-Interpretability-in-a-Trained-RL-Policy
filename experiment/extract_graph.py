@@ -43,17 +43,6 @@ def load_sae():
     return sae, ckpt
 
 
-def get_action_probs(model, activations_tensor):
-    """Run activations through policy head, return action probabilities."""
-    with torch.no_grad():
-        dist = model.policy.action_dist.proba_distribution(
-            action_logits=model.policy.mlp_extractor.policy_net(activations_tensor)
-            if hasattr(model.policy, "mlp_extractor") else
-            model.policy.action_net(activations_tensor)
-        )
-        return dist.distribution.probs
-
-
 def kl_div(p, q):
     """KL(p || q)."""
     p = p + 1e-8
@@ -92,17 +81,21 @@ def main():
     # Sample 100 observations
     sample_idx = np.random.choice(n, 100, replace=False)
     acts_raw = acts_mm[sample_idx]
+
+    # Normalization tensors for denormalizing SAE output back to policy space
+    mean_t = torch.from_numpy(mean).float().to(device)
+    std_t = torch.from_numpy(std).float().to(device)
+
     acts_norm = torch.from_numpy((acts_raw - mean) / std).float().to(device)
 
     # Compute baseline action distributions
+    # Pipeline: acts_norm → SAE → recon_norm → denorm → action_net
     with torch.no_grad():
-        # Reconstruct activations through SAE
         _, h_baseline = sae(acts_norm)
-        recon_baseline = sae.decode(h_baseline)  # (100, 256)
+        recon_norm_baseline = sae.decode(h_baseline)       # normalized space (100, 256)
+        recon_raw_baseline = recon_norm_baseline * std_t + mean_t  # back to policy space
 
-        # Get baseline action probs via policy action_net
-        # SB3 CnnPolicy: features → mlp_extractor (empty net_arch=[]) → action_net → logits
-        logits_baseline = model.policy.action_net(recon_baseline)
+        logits_baseline = model.policy.action_net(recon_raw_baseline)
         probs_baseline = F.softmax(logits_baseline, dim=-1)  # (100, n_actions)
 
     # Mean activation of each feature in top32
@@ -133,7 +126,8 @@ def main():
         with torch.no_grad():
             h_patched = h_baseline.clone()
             h_patched[:, feat_global] = 0.0
-            recon_patched = sae.decode(h_patched)
+            recon_patched_norm = sae.decode(h_patched)
+            recon_patched = recon_patched_norm * std_t + mean_t  # denormalize to policy space
             logits_patched = model.policy.action_net(recon_patched)
             probs_patched = F.softmax(logits_patched, dim=-1)
             kl = kl_div(probs_baseline, probs_patched)

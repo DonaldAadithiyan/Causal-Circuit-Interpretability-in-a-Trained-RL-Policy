@@ -65,12 +65,21 @@ def run_one_condition(label: str, lam: float, seed: int,
     save_dir = os.path.join(OPT_B_DIR, label)
     os.makedirs(save_dir, exist_ok=True)
 
+    # Resume: skip if checkpoint already exists
+    ckpt_path = os.path.join(save_dir, f"policy_seed{seed}.zip")
+    result_path = os.path.join(save_dir, f"result_seed{seed}.json")
+    if os.path.exists(result_path):
+        with open(result_path) as f:
+            cached = json.load(f)
+        print(f"  [SKIP] {label} seed={seed} already done (fail={cached['test_failure_rate']:.3f})")
+        return cached
+
     # Build env factory
     if lam > 0.0:
         def env_fn():
             base_env = make_env(goal_fixed=False)
             return RReasonWrapper(
-                base_env, policy_ref, sae, mean_t, std_t,
+                base_env, policy_ref.policy, sae, mean_t, std_t,
                 baseline_goal, baseline_proxy, goal_feats, proxy_feats, lam
             )
     else:
@@ -112,6 +121,10 @@ def run_one_condition(label: str, lam: float, seed: int,
               f"- test_mean_reward: {test_mean:.4f}\n"
               f"- train_mean_reward: {train_mean:.4f} (forgetting: {train_mean < 0.7})\n"
               f"- elapsed: {elapsed/60:.1f} min")
+
+    # Save result so the run can be resumed if interrupted
+    with open(result_path, "w") as f:
+        json.dump(result, f, indent=2)
 
     del model
     train_env.close()

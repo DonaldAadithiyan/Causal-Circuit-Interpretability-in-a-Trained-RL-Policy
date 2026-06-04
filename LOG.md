@@ -1,6 +1,72 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [17:18] [EXP3] Starting: lam0.1_seed0
+- λ=0.1, seed=0
+
+## [17:18] [EXP3] Starting: baseline_seed123
+- λ=0.0, seed=123
+
+## [17:18] [EXP3] Starting: baseline_seed42
+- λ=0.0, seed=42
+
+## [17:18] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [17:18] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [17:18] [EXP3] START — Option B lambda sweep
+
+
+## [17:17] [EXP3] Starting: lam0.1_seed0
+- λ=0.1, seed=0
+
+## [17:17] [EXP3] Starting: baseline_seed123
+- λ=0.0, seed=123
+
+## [17:17] [EXP3] Starting: baseline_seed42
+- λ=0.0, seed=42
+
+## [17:17] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [17:17] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [17:17] [EXP3] START — Option B lambda sweep
+
+
+## [17:16] [EXP3] Starting: lam0.1_seed0
+- λ=0.1, seed=0
+
+## [17:16] [EXP3] Starting: baseline_seed123
+- λ=0.0, seed=123
+
+## [17:16] [EXP3] Starting: baseline_seed42
+- λ=0.0, seed=42
+
+## [17:16] [EXP3] Starting: baseline_seed0
+- λ=0.0, seed=0
+
+## [17:16] [EXP3] Option B START
+- λ values: [0.0, 0.1, 0.5, 1.0]
+- seeds: [0, 42, 123]
+- timesteps per run: 100,000
+- baseline_goal_sig: 0.3945
+- baseline_proxy_sig: 0.4353
+
+## [17:16] [EXP3] START — Option B lambda sweep
+
+
 ## [17:10] [EXP3] Starting: baseline_seed0
 - λ=0.0, seed=0
 

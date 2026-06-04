@@ -1,0 +1,12 @@
+{
+  "label": "baseline_seed123",
+  "lam": 0.0,
+  "seed": 123,
+  "total_timesteps": 100000,
+  "elapsed_min": 24.0,
+  "test_mean_reward": 1.0,
+  "test_std_reward": 0.43,
+  "test_failure_rate": 0.0,
+  "train_mean_reward": 1.0,
+  "catastrophic_forgetting": false
+}

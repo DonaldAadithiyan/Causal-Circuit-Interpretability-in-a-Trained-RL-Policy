@@ -41,8 +41,9 @@ BASE = os.path.dirname(__file__)
 OUT = os.path.join(BASE, "outputs/experiment4/reviewer")
 Q5 = os.path.join(BASE, "outputs/experiment4/reviewer/q5")
 TRAIN_STEPS = 300_000
-HACK_STEPS = 60_000
+HACK_STEPS = 80_000
 HACK_CHUNK = 10_000
+HACK_SHORTCUT = 1.5   # > real-goal reward (1.0) so a reward-maximiser is incentivised to HACK
 
 
 def behavior_rates(model, shortcut_reward, n=40, seed=0):
@@ -155,7 +156,7 @@ def causal_weight(model, sae, mean, std, feat, n_obs=150):
     cap = {}
     def hook(_m, _i, o): cap["f"] = o.detach()
     h = model.policy.features_extractor.register_forward_hook(hook)
-    env = make_hack_env_with_info(shortcut_reward=0.9)
+    env = make_hack_env_with_info(shortcut_reward=HACK_SHORTCUT)
     obs, info = env.reset(seed=123); feats = []
     for _ in range(n_obs):
         a, _ = model.predict(obs, deterministic=True)
@@ -176,11 +177,11 @@ def causal_weight(model, sae, mean, std, feat, n_obs=150):
 def induce_hacking(model, sae, mean, std, shortcut_feat, real_feat):
     """Second training phase shortcut=0.9; track behavior + shortcut causal weight per chunk."""
     log_entry("[EXP4-Q5] D — induce reward hacking (shortcut=0.9)", "")
-    venv = make_vec_env(lambda: make_hack_env(shortcut_reward=0.9), n_envs=4, seed=1)
+    venv = make_vec_env(lambda: make_hack_env(shortcut_reward=HACK_SHORTCUT), n_envs=4, seed=1)
     model.set_env(venv)
     curve = []
     # step 0
-    sc0, real0, _ = behavior_rates(model, 0.9, n=30)
+    sc0, real0, _ = behavior_rates(model, HACK_SHORTCUT, n=30)
     cw_sc = causal_weight(model, sae, mean, std, shortcut_feat)
     cw_real = causal_weight(model, sae, mean, std, real_feat)
     curve.append({"steps": 0, "shortcut_rate": sc0, "real_rate": real0,
@@ -191,7 +192,7 @@ def induce_hacking(model, sae, mean, std, shortcut_feat, real_feat):
     while done_steps < HACK_STEPS:
         model.learn(total_timesteps=HACK_CHUNK, reset_num_timesteps=False)
         done_steps += HACK_CHUNK
-        sc, real, _ = behavior_rates(model, 0.9, n=30)
+        sc, real, _ = behavior_rates(model, HACK_SHORTCUT, n=30)
         cw_sc = causal_weight(model, sae, mean, std, shortcut_feat)
         cw_real = causal_weight(model, sae, mean, std, real_feat)
         curve.append({"steps": done_steps, "shortcut_rate": sc, "real_rate": real,
@@ -207,7 +208,16 @@ def main():
     log_entry("[EXP4-Q5] START — reward-hacking failure mode", "")
     t0 = time.time()
 
-    model, base_beh = train_base()
+    # Resume: reuse the trained base policy if present (skip the ~31-min retrain)
+    base_ckpt = os.path.join(Q5, "hack_policy.zip")
+    if os.path.exists(base_ckpt):
+        log_entry("[EXP4-Q5] A — reusing trained base policy", f"- {base_ckpt}")
+        model = PPO.load(base_ckpt, device=str(device))
+        model.policy.eval()
+        sc, real, none = behavior_rates(model, 0.3, n=40)
+        base_beh = {"shortcut_rate": sc, "real_rate": real, "none_rate": none}
+    else:
+        model, base_beh = train_base()
     sae, mean, std, acts, apos, rg = collect_and_train_sae(model)
     sc_feat, real_feat, sc_corr, rg_corr = identify_features(sae, mean, std, acts, apos, rg)
     curve = induce_hacking(model, sae, mean, std, sc_feat, real_feat)
@@ -221,6 +231,8 @@ def main():
     k_hack = (beh_switch - sig_rise) if (beh_switch is not None and sig_rise is not None) else None
 
     summary = {
+        "hack_shortcut_reward": HACK_SHORTCUT,
+        "real_goal_reward": 1.0,
         "base_behavior_shortcut03": base_beh,
         "shortcut_feature": sc_feat, "shortcut_feature_corr": sc_corr,
         "real_feature": real_feat, "real_feature_corr": rg_corr,

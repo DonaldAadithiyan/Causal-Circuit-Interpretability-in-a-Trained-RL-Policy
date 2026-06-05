@@ -11,7 +11,7 @@ answered honestly. Every number below is traceable to a file under
 | Q2 | Does it hold at scale? | **Open (no local GPU)** | honest scope statement + the partial evidence we have |
 | Q3 | Is the diagnosis automatable? | **Yes** | classifier 100% accurate; steering engages 94% on representation vs 0.5% on routing |
 | Q4 | How narrow is the λ band? | **Narrow: [0.10, 0.15]** | reliable band [0.1,0.15]; λ=0.05 unstable; cliff at λ≥0.2 |
-| Q5 | Other failure modes? | **Running (reward hacking)** | dual-reward policy + signal-vs-behavior tracking |
+| Q5 | Other failure modes? | **Partial — detects, doesn't yet lead** | reward hacking induced 0→100%; shortcut feature causal weight rises ~50×, but coincident with (not before) the switch |
 | Q6 | Online correction possible? | **Yes (not monotonic)** | (6,5) 100%→0% by ~8,000 online steps; one transient relapse at 20k |
 
 ---
@@ -144,25 +144,57 @@ obvious follow-up.)
 
 ---
 
-## Q5 — Does it work for other failure modes (reward hacking)? **Running.**
+## Q5 — Does it work for other failure modes (reward hacking)? **Partially — the signal tracks the hack, but the lead time is not clean.**
 
-This is a genuinely new experiment (new environment + new policy). It is **implemented and running**
-(`reviewer_q5_reward_hacking.py`, env `envs/coin_hack_env.py`); the result table and the
-graph-signal-vs-behavior plot are patched in on completion. The protocol:
+**What we did.** Built a genuine reward-hacking testbed (`envs/coin_hack_env.py`): CoinCollect with
+two terminating objects — a **shortcut** at a fixed easy cell (2,2) and the **real goal** at a
+random cell. Trained a fresh PPO+IMPALA policy with shortcut reward = 0.3 (real goal = 1.0). Then
+**induced hacking** by raising the shortcut reward to **1.5 (> the real goal's 1.0)** — so a
+reward-maximiser is now incentivised to take the proxy — and ran 80k steps of PPO, recording at
+every 10k chunk both the behavioral shortcut-take rate and the shortcut feature's causal weight to
+the action (KL when zeroed = the I2 / spurious-edge signal). Script: `reviewer_q5_reward_hacking.py`.
+Data: `reviewer/q5_reward_hacking.json`.
 
-1. **Environment.** Add a second "shortcut" object to CoinCollect at a fixed easy cell near the
-   start, giving a *small* reward (0.3) on contact; the real goal (random position) gives 1.0.
-2. **Train.** PPO + IMPALA CNN. The agent should learn both objects exist and prefer the real goal.
-3. **Induce reward hacking.** At test, raise the shortcut's value above the real goal (or move the
-   real goal far). The agent should start taking the shortcut — reward hacking.
-4. **Detect.** Build G* as before. Check whether **I1 (causal-depth collapse)** and **I2 (spurious
-   edge re-entry — the shortcut feature gaining causal weight to the action)** fire *before* the
-   behavioral switch to the shortcut. Measure k for the I1+I2 signal vs the behavioral hack.
+*(First attempt used shortcut = 0.9, which is **below** the real goal's 1.0 — so there was no
+hacking incentive and the agent correctly never switched. That run is a design artifact, not a
+result; the corrected run uses 1.5.)*
 
-**Why we expect it to work:** reward hacking is structurally the same as the (6,5) routing case —
-a feature (the shortcut) gains causal control of the action while the goal feature loses it. I2 is
-designed precisely for "a spurious feature re-enters the circuit." This is the recommended second
-failure mode and the natural follow-up to Q1–Q6.
+**Result 1 — the testbed and the phenomenon are clean.** The base policy genuinely prefers the real
+goal (shortcut-take rate **0.00**, real-goal rate **0.93** at reward 0.3). When the shortcut is made
+more valuable, reward hacking emerges cleanly:
+
+| Induction steps (shortcut=1.5) | shortcut-take rate | shortcut feature causal weight |
+|---|---|---|
+| 0 | 0.00 | 0.0011 |
+| 10,000 | 0.00 | 0.0000 |
+| 20,000 | 0.03 | 0.0027 |
+| 30,000 | 0.40 | 0.0007 |
+| 40,000 | **0.87** | 0.0046 |
+| 50,000 | 0.97 | **0.0362** |
+| 60,000 | 1.00 | 0.0280 |
+| 70,000 | 1.00 | **0.0574** |
+| 80,000 | 0.90 | 0.0323 |
+
+**Result 2 — the graph registers the hack.** The shortcut feature's causal weight to the action
+rises **~50×** (0.0011 → 0.057) as the hack develops. So I2's core premise holds: when the agent
+starts exploiting the shortcut, the shortcut feature **gains causal control of the action** — the
+spurious edge re-enters the circuit, and the graph sees it.
+
+**Result 3 — but the lead time is not clean.** The behavioral switch (shortcut rate > 0.5) is at
+**40k steps**. The *sustained* causal-weight rise (0.0046 → 0.036 → 0.057) is at **40k–70k** — it
+**coincides with** the switch, and the strongest signal (50k–70k) slightly *lags* it. The script's
+`k_hack = 20k` is driven by a **noisy early blip** (0.0027 at 20k, which then drops back to 0.0007
+at 30k before the real rise) crossing a low threshold — not a reliable pre-failure signal.
+
+**Verdict — partial generalization.** The method **does** extend to reward hacking in the sense the
+proposal cares about most: the spurious feature's causal weight rises sharply and detectably (~50×)
+as the hack develops, exactly as I2 predicts. But with the **raw-KL** causal metric at this scale,
+the signal is too noisy to claim a clean *pre-failure lead* — unlike the goal-misgeneralization case
+(Exp 4, k_graph = 200). The honest reading: **detection of reward hacking works; early warning is not
+yet demonstrated.** The recommended fix is the **W-based causal signal** (the gradient-free metric
+that gave r = 0.59–0.89 and powered Q1–Q3), which is far less noisy than raw KL and is the natural
+way to re-test whether the spurious-edge signal *leads* the behavioral hack. That is a fast
+follow-up (re-scoring saved checkpoints, no retraining).
 
 ---
 
@@ -210,13 +242,18 @@ the failure clears, rather than run open-endedly." This is the same λ/stability
   steering** as the correct tool for representation failures.
 - **Q6** converts the correction claim from "offline retraining" to "online, in-deployment, ~8k
   steps, no forgetting."
-- **Q4** replaces "λ is razor-thin" with a mapped band (safe ≤ 0.1, catastrophic ≥ 0.5).
-- **Q2** and **Q5** are stated honestly as the two open follow-ups, each with a concrete,
-  costed protocol.
+- **Q4** replaces "λ is razor-thin" with a mapped band (reliable [0.10, 0.15]; unstable at 0.05;
+  hard collapse cliff at ≥ 0.20).
+- **Q5** shows the mechanism **extends to a second failure mode** (reward hacking): the spurious
+  feature's causal weight rises ~50× as the hack develops, so the graph *detects* it — but honestly
+  reports that early *warning* is not yet established with the raw-KL metric (the rise is coincident
+  with, not before, the behavioral switch), and names the W-based signal as the fix.
+- **Q2** remains the one genuinely open item (scale), with a concrete costed Procgen protocol.
 
-Together they move the paper from "a striking single result" to "a characterized phenomenon with
-an automatable diagnosis and an online correction," while being explicit about the two things still
-to test (scale and a second failure mode).
+Together they move the paper from "a striking single result" to "a characterized phenomenon with an
+automatable diagnosis, an online correction, and a second failure mode where the signal is at least
+detectable" — while being explicit about the two things still to nail down (scale, and a clean
+*pre-failure* reward-hacking signal via the W-based metric).
 
 ---
 
@@ -227,6 +264,7 @@ to test (scale and a second failure mode).
 | Q1 | `experiment/reviewer_q1_position_sweep.py` | `experiment/outputs/experiment4/reviewer/q1_position_sweep.json` |
 | Q3 | `experiment/reviewer_q3_diagnosis.py` | `experiment/outputs/experiment4/reviewer/q3_diagnosis.json` |
 | Q4 | `experiment/reviewer_q4_lambda_sweep.py` | `experiment/outputs/experiment4/reviewer/q4_lambda_sweep.json` |
+| Q5 | `experiment/reviewer_q5_reward_hacking.py`, `experiment/envs/coin_hack_env.py` | `experiment/outputs/experiment4/reviewer/q5_reward_hacking.json` |
 | Q6 | `experiment/reviewer_q6_online.py` | `experiment/outputs/experiment4/reviewer/q6_online_correction.json` |
 
 All chronological detail is in `LOG.md` under the `[EXP4-Q1]`…`[EXP4-Q6]` entries.

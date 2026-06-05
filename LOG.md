@@ -1,6 +1,65 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [00:43] [EXP4-Q5] reward hacking — final honest result
+- First run flawed: shortcut=0.9 < real=1.0 -> no hacking incentive (artifact, discarded)
+- Corrected: shortcut=1.5 > 1.0. Base policy prefers real goal (0% shortcut, 93% real)
+- Hacking cleanly induced: shortcut-take rate 0%->100% over 80k steps
+- Graph registers it: shortcut feature causal weight rises ~50x (0.0011->0.057)
+- BUT lead not clean: sustained rise (40-70k) coincides with behavioral switch (40k); raw-KL too noisy
+- Verdict: detection generalizes; pre-failure WARNING needs W-based metric (follow-up)
+
+## [00:40] [EXP4-Q5] COMPLETE
+- base (shortcut=0.3) shortcut_rate 0.00
+- shortcut feature 113 (corr -0.213)
+- behavioral switch at 40000, signal rise at 20000, k_hack=20000
+
+## [00:40] [EXP4-Q5] D 80000 steps
+- shortcut_rate=0.90 shortcut_causal=0.03230
+
+## [00:38] [EXP4-Q5] D 70000 steps
+- shortcut_rate=1.00 shortcut_causal=0.05735
+
+## [00:35] [EXP4-Q5] D 60000 steps
+- shortcut_rate=1.00 shortcut_causal=0.02797
+
+## [00:33] [EXP4-Q5] D 50000 steps
+- shortcut_rate=0.97 shortcut_causal=0.03621
+
+## [00:30] [EXP4-Q5] D 40000 steps
+- shortcut_rate=0.87 shortcut_causal=0.00464
+
+## [00:28] [EXP4-Q5] D 30000 steps
+- shortcut_rate=0.40 shortcut_causal=0.00068
+
+## [00:26] [EXP4-Q5] D 20000 steps
+- shortcut_rate=0.03 shortcut_causal=0.00274
+
+## [00:24] [EXP4-Q5] D 10000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00000
+
+## [00:22] [EXP4-Q5] D step 0
+- shortcut_rate=0.00 shortcut_causal=0.00107 real_causal=0.00712
+
+## [00:22] [EXP4-Q5] D — induce reward hacking (shortcut=0.9)
+
+
+## [00:22] [EXP4-Q5] C — features identified
+- shortcut_feat 113 (corr -0.213)
+- real_feat 306 (corr 0.251)
+
+## [00:22] [EXP4-Q5] B done
+- SAE dead 0/384
+
+## [00:14] [EXP4-Q5] B — collect activations + train SAE
+- 60,000
+
+## [00:14] [EXP4-Q5] A — reusing trained base policy
+- /Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/experiment4/reviewer/q5/hack_policy.zip
+
+## [00:14] [EXP4-Q5] START — reward-hacking failure mode
+
+
 ## [20:03] [EXP4-Q5] COMPLETE
 - base (shortcut=0.3) shortcut_rate 0.00
 - shortcut feature 38 (corr 0.263)

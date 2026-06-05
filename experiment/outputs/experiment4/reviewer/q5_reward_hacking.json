@@ -1,66 +1,82 @@
 {
+  "hack_shortcut_reward": 1.5,
+  "real_goal_reward": 1.0,
   "base_behavior_shortcut03": {
     "shortcut_rate": 0.0,
     "real_rate": 0.925,
     "none_rate": 0.075
   },
-  "shortcut_feature": 38,
-  "shortcut_feature_corr": 0.26341972536987535,
-  "real_feature": 120,
-  "real_feature_corr": -0.2916043688566703,
+  "shortcut_feature": 113,
+  "shortcut_feature_corr": -0.21251227030174363,
+  "real_feature": 306,
+  "real_feature_corr": 0.251464604611297,
   "curve": [
     {
       "steps": 0,
       "shortcut_rate": 0.0,
       "real_rate": 0.9333333333333333,
-      "shortcut_causal": 0.0018899356946349144,
-      "real_causal": 0.0006350110052153468
+      "shortcut_causal": 0.0010740840807557106,
+      "real_causal": 0.007115283980965614
     },
     {
       "steps": 10000,
       "shortcut_rate": 0.0,
-      "real_rate": 1.0,
-      "shortcut_causal": 0.0016071415739133954,
-      "real_causal": 0.0014759193873032928
-    },
-    {
-      "steps": 20000,
-      "shortcut_rate": 0.0,
-      "real_rate": 1.0,
-      "shortcut_causal": 0.0012572952546179295,
-      "real_causal": 0.0005104953306727111
-    },
-    {
-      "steps": 30000,
-      "shortcut_rate": 0.0,
-      "real_rate": 0.9666666666666667,
-      "shortcut_causal": 0.00025239071692340076,
-      "real_causal": 0.00020115826919209212
-    },
-    {
-      "steps": 40000,
-      "shortcut_rate": 0.0,
-      "real_rate": 0.8333333333333334,
+      "real_rate": 0.9,
       "shortcut_causal": 0.0,
       "real_causal": 0.0
     },
     {
+      "steps": 20000,
+      "shortcut_rate": 0.03333333333333333,
+      "real_rate": 0.8666666666666667,
+      "shortcut_causal": 0.0027402767445892096,
+      "real_causal": 0.0010324462782591581
+    },
+    {
+      "steps": 30000,
+      "shortcut_rate": 0.4,
+      "real_rate": 0.5333333333333333,
+      "shortcut_causal": 0.0006750389584340155,
+      "real_causal": 0.0006013930542394519
+    },
+    {
+      "steps": 40000,
+      "shortcut_rate": 0.8666666666666667,
+      "real_rate": 0.03333333333333333,
+      "shortcut_causal": 0.004643366206437349,
+      "real_causal": 2.956868411274627e-05
+    },
+    {
       "steps": 50000,
-      "shortcut_rate": 0.0,
-      "real_rate": 1.0,
-      "shortcut_causal": 0.0017706037033349276,
-      "real_causal": 0.0009158484172075987
+      "shortcut_rate": 0.9666666666666667,
+      "real_rate": 0.0,
+      "shortcut_causal": 0.036208126693964005,
+      "real_causal": 0.0
     },
     {
       "steps": 60000,
-      "shortcut_rate": 0.0,
-      "real_rate": 0.9333333333333333,
-      "shortcut_causal": 0.0006589745753444731,
-      "real_causal": 0.0004938329802826047
+      "shortcut_rate": 1.0,
+      "real_rate": 0.0,
+      "shortcut_causal": 0.027967456728219986,
+      "real_causal": 0.0004295430553611368
+    },
+    {
+      "steps": 70000,
+      "shortcut_rate": 1.0,
+      "real_rate": 0.0,
+      "shortcut_causal": 0.05735081434249878,
+      "real_causal": 0.0004060947976540774
+    },
+    {
+      "steps": 80000,
+      "shortcut_rate": 0.9,
+      "real_rate": 0.0,
+      "shortcut_causal": 0.03230384737253189,
+      "real_causal": 0.0009389648912474513
     }
   ],
-  "behavioral_switch_step": null,
-  "signal_rise_step": null,
-  "k_hack": null,
-  "elapsed_min": 45.18192730347315
+  "behavioral_switch_step": 40000,
+  "signal_rise_step": 20000,
+  "k_hack": 20000,
+  "elapsed_min": 26.44715898036957
 }

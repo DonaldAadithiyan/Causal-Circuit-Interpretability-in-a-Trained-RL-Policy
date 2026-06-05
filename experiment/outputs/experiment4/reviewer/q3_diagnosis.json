@@ -1,0 +1,106 @@
+{
+  "classifier_threshold_goal_frac": 0.6,
+  "classifier_accuracy_vs_q1_labels": 1.0,
+  "n_failing_positions": 5,
+  "failing_positions": [
+    {
+      "pos": [
+        1,
+        5
+      ],
+      "ground_truth_type": "representation",
+      "goal_activation_fraction": 0.0,
+      "predicted_type": "representation",
+      "prescribed_response": "activation_steering"
+    },
+    {
+      "pos": [
+        3,
+        5
+      ],
+      "ground_truth_type": "representation",
+      "goal_activation_fraction": 0.011247703967154977,
+      "predicted_type": "representation",
+      "prescribed_response": "activation_steering"
+    },
+    {
+      "pos": [
+        4,
+        5
+      ],
+      "ground_truth_type": "routing",
+      "goal_activation_fraction": 13.692982975423751,
+      "predicted_type": "routing",
+      "prescribed_response": "R_reason"
+    },
+    {
+      "pos": [
+        6,
+        5
+      ],
+      "ground_truth_type": "routing",
+      "goal_activation_fraction": 3.365054415914021,
+      "predicted_type": "routing",
+      "prescribed_response": "R_reason"
+    },
+    {
+      "pos": [
+        1,
+        6
+      ],
+      "ground_truth_type": "representation",
+      "goal_activation_fraction": 0.0,
+      "predicted_type": "representation",
+      "prescribed_response": "activation_steering"
+    }
+  ],
+  "steering_validation": [
+    {
+      "pos": [
+        1,
+        5
+      ],
+      "type": "representation",
+      "steer_fraction": 1.0,
+      "failure_rate": 0.0
+    },
+    {
+      "pos": [
+        3,
+        5
+      ],
+      "type": "representation",
+      "steer_fraction": 0.9950000000000002,
+      "failure_rate": 1.0
+    },
+    {
+      "pos": [
+        4,
+        5
+      ],
+      "type": "routing",
+      "steer_fraction": 0.0,
+      "failure_rate": 1.0
+    },
+    {
+      "pos": [
+        6,
+        5
+      ],
+      "type": "routing",
+      "steer_fraction": 0.010000000000000002,
+      "failure_rate": 1.0
+    },
+    {
+      "pos": [
+        1,
+        6
+      ],
+      "type": "representation",
+      "steer_fraction": 0.8333333333333331,
+      "failure_rate": 0.0
+    }
+  ],
+  "mean_steer_fraction_routing": 0.005000000000000001,
+  "mean_steer_fraction_representation": 0.9427777777777777
+}

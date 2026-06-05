@@ -1,6 +1,85 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [17:30] [EXP4-Q6] 8000 steps
+- test_fail=0.00 train_fail=0.30
+
+## [17:29] [EXP4-Q6] 4000 steps
+- test_fail=1.00 train_fail=0.10
+
+## [17:28] [EXP4-Q6] step 0
+- test_fail=1.00
+
+## [17:28] [EXP4-Q6] Online correction (Option A) START
+- (6,5), λ=0.1, n_steps=512, chunks of 4000 up to 28000
+
+## [17:28] [EXP4-Q4] λ=0.05 seed=0
+- fail=0.000 reward=1.000 (13 min)
+
+## [17:17] [EXP4-Q3] COMPLETE
+- classifier accuracy vs Q1 labels: 100%
+- steer engagement: routing 0.005000000000000001, representation 0.9427777777777777
+
+## [17:17] [EXP4-Q3] steering at (1, 6) (representation)
+- steer_frac=0.83 fail=0.00
+
+## [17:17] [EXP4-Q3] steering at (6, 5) (routing)
+- steer_frac=0.01 fail=1.00
+
+## [17:17] [EXP4-Q3] steering at (4, 5) (routing)
+- steer_frac=0.00 fail=1.00
+
+## [17:16] [EXP4-Q3] steering at (3, 5) (representation)
+- steer_frac=1.00 fail=1.00
+
+## [17:16] [EXP4-Q3] steering at (1, 5) (representation)
+- steer_frac=1.00 fail=0.00
+
+## [17:16] [EXP4-Q3] Diagnosis classifier START
+
+
+## [17:15] [EXP4-Q4] Finer λ sweep START
+- λ [0.05, 0.1, 0.15, 0.2, 0.3, 0.5] × seeds [0, 42] × 40k steps on (6,5)
+- baseline goal_sig 0.1916 proxy_sig 0.3149
+
+## [17:13] [EXP4-Q1] COMPLETE
+- positions: 35, solved: 30, failures: 5
+- graph fired on 100% of failing positions
+- ROUTING failures (goal_act_frac>0.6, goal active but ignored): 2 -> [[4, 5], [6, 5]]
+- representation failures (goal feature silent): 3
+
+## [17:13] [EXP4-Q1] baselines
+- goal_sig 0.3017, proxy_sig 0.2595
+
+## [17:12] [EXP4-Q1] Position sweep START — routing-failure prevalence
+
+
+## [17:11] [EXP4-Q1] COMPLETE
+- positions: 35
+- solved: 30
+- ROUTING failures (k_act=nan & k_graph fires): 2 (6%)
+- representation failures: 3
+- routing positions: [[4, 5], [6, 5]]
+
+## [17:10] [EXP4-Q1] baselines
+- goal_sig 0.2588, proxy_sig 0.3087
+
+## [17:10] [EXP4-Q1] Position sweep START — routing-failure prevalence
+
+
+## [17:06] [EXP4-Q1] COMPLETE
+- positions: 35
+- solved: 30
+- ROUTING failures (k_act=nan & k_graph fires): 1 (3%)
+- representation failures: 4
+- routing positions: [[4, 5]]
+
+## [17:05] [EXP4-Q1] baselines
+- goal_sig 0.7752, proxy_sig 0.4203
+
+## [17:05] [EXP4-Q1] Position sweep START — routing-failure prevalence
+
+
 ## [16:18] [EXP4] COMPLETE — EXPLAINER4 rewritten
 - H1 PASSED: random-goal policy goal corr 0.44 vs 0.005 fixed-goal (88x) — SAEv3 0/384 dead
 - DISCOVERY: at (6,5) blind spot, k_activation=nan (goal feature stays active=blind) but k_graph=200 (graph fires step 0)

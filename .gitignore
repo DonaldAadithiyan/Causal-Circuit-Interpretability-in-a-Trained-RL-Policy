@@ -241,6 +241,7 @@ experiment/outputs/experiment2b/plots/
 experiment/outputs/experiment3/plots/
 experiment/outputs/experiment3/**/*.zip
 experiment/outputs/experiment4/plots/
+experiment/outputs/experiment4/reviewer/*.png
 experiment/outputs/experiment4/**/*.zip
 experiment/outputs/experiment4/**/*.pt
 

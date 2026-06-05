@@ -1,0 +1,66 @@
+{
+  "base_behavior_shortcut03": {
+    "shortcut_rate": 0.0,
+    "real_rate": 0.925,
+    "none_rate": 0.075
+  },
+  "shortcut_feature": 38,
+  "shortcut_feature_corr": 0.26341972536987535,
+  "real_feature": 120,
+  "real_feature_corr": -0.2916043688566703,
+  "curve": [
+    {
+      "steps": 0,
+      "shortcut_rate": 0.0,
+      "real_rate": 0.9333333333333333,
+      "shortcut_causal": 0.0018899356946349144,
+      "real_causal": 0.0006350110052153468
+    },
+    {
+      "steps": 10000,
+      "shortcut_rate": 0.0,
+      "real_rate": 1.0,
+      "shortcut_causal": 0.0016071415739133954,
+      "real_causal": 0.0014759193873032928
+    },
+    {
+      "steps": 20000,
+      "shortcut_rate": 0.0,
+      "real_rate": 1.0,
+      "shortcut_causal": 0.0012572952546179295,
+      "real_causal": 0.0005104953306727111
+    },
+    {
+      "steps": 30000,
+      "shortcut_rate": 0.0,
+      "real_rate": 0.9666666666666667,
+      "shortcut_causal": 0.00025239071692340076,
+      "real_causal": 0.00020115826919209212
+    },
+    {
+      "steps": 40000,
+      "shortcut_rate": 0.0,
+      "real_rate": 0.8333333333333334,
+      "shortcut_causal": 0.0,
+      "real_causal": 0.0
+    },
+    {
+      "steps": 50000,
+      "shortcut_rate": 0.0,
+      "real_rate": 1.0,
+      "shortcut_causal": 0.0017706037033349276,
+      "real_causal": 0.0009158484172075987
+    },
+    {
+      "steps": 60000,
+      "shortcut_rate": 0.0,
+      "real_rate": 0.9333333333333333,
+      "shortcut_causal": 0.0006589745753444731,
+      "real_causal": 0.0004938329802826047
+    }
+  ],
+  "behavioral_switch_step": null,
+  "signal_rise_step": null,
+  "k_hack": null,
+  "elapsed_min": 45.18192730347315
+}

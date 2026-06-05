@@ -1,6 +1,29 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [20:03] [EXP4-Q5] COMPLETE
+- base (shortcut=0.3) shortcut_rate 0.00
+- shortcut feature 38 (corr 0.263)
+- behavioral switch at None, signal rise at None, k_hack=None
+
+## [20:03] [EXP4-Q5] D 60000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00066
+
+## [20:01] [EXP4-Q5] D 50000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00177
+
+## [20:00] [EXP4-Q5] D 40000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00000
+
+## [19:58] [EXP4-Q5] D 30000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00025
+
+## [19:56] [EXP4-Q5] D 20000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00126
+
+## [19:55] [EXP4-Q5] D 10000 steps
+- shortcut_rate=0.00 shortcut_causal=0.00161
+
 ## [19:53] [EXP4-Q5] D step 0
 - shortcut_rate=0.00 shortcut_causal=0.00189 real_causal=0.00064
 

@@ -24,9 +24,12 @@ class CoinCollectEnv(MiniGridEnv):
     FIXED_GOAL = (6, 4)
 
     def __init__(self, goal_fixed: bool = True, goal_displacement: int = 0,
+                 random_goal: bool = False, fixed_goal_pos: tuple = None,
                  size: int = 8, max_steps: int = 200, **kwargs):
         self.goal_fixed = goal_fixed
         self.goal_displacement = goal_displacement  # 0=training, 1-3=graded, -1=random
+        self.random_goal = random_goal              # Exp4: goal random every episode
+        self.fixed_goal_pos = fixed_goal_pos        # Exp4: arbitrary fixed test position
         self._size = size
         mission_space = MissionSpace(mission_func=lambda: "reach the goal")
         super().__init__(
@@ -45,7 +48,16 @@ class CoinCollectEnv(MiniGridEnv):
         self.agent_pos = np.array([1, 1])
         self.agent_dir = 0
 
-        if self.goal_fixed or self.goal_displacement == 0:
+        if self.random_goal:
+            # Exp4 training: goal uniformly random over valid floor cells every episode
+            while True:
+                gx = self._rand_int(1, width - 1)
+                gy = self._rand_int(1, height - 1)
+                if (gx, gy) != (1, 1):
+                    break
+        elif self.fixed_goal_pos is not None:
+            gx, gy = self.fixed_goal_pos
+        elif self.goal_fixed or self.goal_displacement == 0:
             gx, gy = self.FIXED_GOAL
         elif self.goal_displacement == -1:
             # Fully random (original test distribution)
@@ -104,11 +116,15 @@ class ImageOnlyWrapper(gym.ObservationWrapper):
 
 
 def make_env(goal_fixed: bool = True, goal_displacement: int = 0,
+             random_goal: bool = False, fixed_goal_pos: tuple = None,
              size: int = 8, tile_size: int = 8):
     """Create a fully wrapped CoinCollect environment ready for SB3.
     goal_displacement: 0=fixed, 1/2/3=graded shift, -1=fully random.
+    random_goal: Exp4 training — goal random every episode.
+    fixed_goal_pos: Exp4 test — goal pinned at an arbitrary cell, e.g. (2,2).
     """
     env = CoinCollectEnv(goal_fixed=goal_fixed, goal_displacement=goal_displacement,
+                         random_goal=random_goal, fixed_goal_pos=fixed_goal_pos,
                          size=size, max_steps=200)
     env = RGBImgObsWrapper(env, tile_size=tile_size)
     env = ImageOnlyWrapper(env)
@@ -143,9 +159,11 @@ class InfoWrapper(gym.Wrapper):
 
 
 def make_env_with_info(goal_fixed: bool = True, goal_displacement: int = 0,
+                       random_goal: bool = False, fixed_goal_pos: tuple = None,
                        size: int = 8, tile_size: int = 8):
     """Create env that preserves goal_pos / agent_pos in info dict."""
     base = CoinCollectEnv(goal_fixed=goal_fixed, goal_displacement=goal_displacement,
+                          random_goal=random_goal, fixed_goal_pos=fixed_goal_pos,
                           size=size, max_steps=200)
     env = InfoWrapper(base, tile_size=tile_size)
     return env

@@ -1,6 +1,134 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [14:24] [EXP4] Phase 2 COMPLETE
+- W validation r: 0.5914 (PASS)
+- goal_c*: 0.001128, proxy_c*: 0.000998
+
+## [14:24] [EXP4] Phase 2 — building W + G*
+
+
+## [14:24] [EXP4] Phase 2 — H1 PASS
+- max_actual_goal_corr: 0.4395 (threshold 0.3)
+- top5: [(31, -0.44), (280, -0.432), (338, -0.408), (117, -0.384), (291, -0.38)]
+- goal_features: [31, 280, 338, 117, 291]
+- proxy_features: [304, 227, 49, 104, 196, 137]
+
+## [14:23] [EXP4] Phase 2 — H1 check (actual_goal_corr)
+running 100 test episodes...
+
+## [14:23] [EXP4] Phase 2 — SAEv3 loaded
+- dead: 0/384, val 3.912e-03
+
+## [14:23] [EXP4] Phase 2 — SAEv3 done
+- best val 0.003912
+
+## [14:23] [EXP4] SAEv3 epoch 60/60
+- val_loss: 0.003912
+- dead: 0/384
+- 1.7 min
+
+## [14:23] [EXP4] SAEv3 epoch 50/60
+- val_loss: 0.004574
+- dead: 0/384
+- 1.4 min
+
+## [14:23] [EXP4] SAEv3 epoch 40/60
+- val_loss: 0.005649
+- dead: 0/384
+- 1.0 min
+
+## [14:22] [EXP4] SAEv3 epoch 30/60
+- val_loss: 0.007765
+- dead: 0/384
+- 0.5 min
+
+## [14:22] [EXP4] SAEv3 epoch 20/60
+- val_loss: 0.012547
+- dead: 0/384
+- 0.3 min
+
+## [14:22] [EXP4] SAEv3 epoch 10/60
+- val_loss: 0.029333
+- dead: 0/384
+- 0.1 min
+
+## [14:22] [EXP4] SAEv3 epoch 1/60
+- val_loss: 0.338530
+- dead: 0/384
+- 0.0 min
+
+## [14:22] [EXP4] Phase 2 — SAEv3 training start
+- hidden=384, K=32, train=90,000
+
+## [14:22] [EXP4] Phase 2 — collection done
+- 100,000 samples
+
+## [14:22] [EXP4] Phase 2 — 100,000/100,000 collected
+- 7.1 min
+
+## [14:21] [EXP4] Phase 2 — 80,000/100,000 collected
+- 6.1 min
+
+## [14:19] [EXP4] Phase 2 — 60,000/100,000 collected
+- 4.7 min
+
+## [14:18] [EXP4] Phase 2 — 40,000/100,000 collected
+- 3.4 min
+
+## [14:16] [EXP4] Phase 2 — 20,000/100,000 collected
+- 1.5 min
+
+## [14:15] [EXP4] Phase 2 — collecting activations
+- target 100,000
+
+## [14:15] [EXP4] Phase 2 START — SAEv3 + H1 verification
+
+
+## [10:54] [EXP4] Phase 1 COMPLETE
+- Train (random goal): 0.8000 ± 0.4000
+- Test (goal at (2, 2)): 1.0000 ± 0.0000
+- Test failure rate: 0.000
+- Elapsed: 48.1 min
+
+## [10:53] [EXP4] Phase 1 — 500,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:47] [EXP4] Phase 1 — 440,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:44] [EXP4] Phase 1 — 410,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:43] [EXP4] Phase 1 — 400,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:42] [EXP4] Phase 1 — 390,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 2
+
+## [10:32] [EXP4] Phase 1 — 280,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:26] [EXP4] Phase 1 — 220,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:22] [EXP4] Phase 1 — 180,000 steps
+- Mean episodic reward (random goal): 1.0000
+- n_episodes: 1
+
+## [10:06] [EXP4] Phase 1 START — PPO with RANDOMISED goal
+- Goal random every episode (forces goal-reading)
+- IMPALA CNN, features_dim=256
+- Test dist: goal fixed at (2, 2)
+- Device: mps
+
 ## [09:17] [EXP2b+3] ALL EXPERIMENTS COMPLETE — EXPLAINER2/3 rewritten
 - W-matrix: r=0.893 vs patching (EAP was 0.146) — gradient-free causal edges WORK
 - SAEv2: 100/384 dead (was 785/1024), val MSE 4.75e-6

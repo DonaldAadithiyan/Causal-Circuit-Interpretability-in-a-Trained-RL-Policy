@@ -387,7 +387,164 @@ profiles) **SUPPORTED, with inverted ordering** and a clean repair-vs-behaviour 
 
 ---
 
-## 7. Every Metric, In One Place
+## 7. Methods in Detail — The Detection Signal and the Three Responses (Equations)
+
+This section makes the machinery precise. Everything below is exactly what the code does.
+
+### 7.1 The building blocks
+
+For an observation, the frozen policy produces a 256-dim representation **r** (output of the
+IMPALA CNN body). The frozen SAE encodes it (after normalisation) into sparse feature
+activations **h**:
+
+```
+r_norm = (r − mean) / std                      # per-feature normalisation
+h      = TopK( W_enc · r_norm + b_enc )         # K = 32 active features, the rest are 0
+```
+
+Two sets of features were identified for the policy under test:
+- **F_goal** — features whose activation tracks the actual goal position
+  (Exp 4: [31, 280, 338, 117, 291], correlation up to 0.44).
+- **F_proxy / spurious set S** — features that fire on the agent's path/position but do not
+  track the goal (Exp 4: [304, 227, 49, 104, 196, 137]).
+
+**Causal importance c\*** (the reference graph G\*). For each feature i, zero it in the SAE
+reconstruction, push the result back through the policy head, and measure how much the action
+distribution moves:
+
+```
+c*_i = KL( π(action | r)  ||  π(action | r with feature i removed) )
+```
+
+**Live causal weight c_live** (the W-matrix graph, gradient-free). Using
+`W = D^T · W_enc^T` (decoder^T @ encoder^T, validated r = 0.59–0.89 vs patching), the live
+causal importance of each active feature at a step is:
+
+```
+c_live_i = Σ_j | W[i, j] | · h_j           # influence of feature i, weighted by current activations
+```
+
+### 7.2 The detection signal — V_total, k_activation, k_graph
+
+The **violation score** (file: `measure_invariances.py`) compares the live graph against G\*:
+
+```
+V_drop  = Σ_{i ∈ F_goal}  max(0,  c*_i − c_live_i)     # goal features losing causal weight
+V_gain  = Σ_{i ∈ S}       max(0,  c_live_i − c*_i)     # spurious features gaining causal weight
+V_total = α·V_drop + β·V_gain + γ·𝟙[I5]               # α = β = γ = 1
+```
+
+`I5` is a self-consistency check (zero the currently-dominant feature; if the action barely
+changes it "fired"), run only when I1–I4 already flagged something.
+
+Two early-warning numbers are then read per episode:
+
+```
+k_activation = (reward-degradation step) − (step goal ACTIVATION first drops below 50% of baseline)
+k_graph      = (reward-degradation step) − (step V_total first crosses its threshold)
+```
+
+`k_activation` is the Experiment-1 signal (watches activation *magnitude*). `k_graph` is the
+graph signal (watches causal *routing*). The whole programme turns on comparing them. In
+Experiment 4 at (6,5), the goal activation never drops, so **k_activation is undefined**, while
+V_total crosses at step 0, so **k_graph = 200**.
+
+### 7.3 Response 1 — R_reason (reward shaping)
+
+**What it means:** turn the violation score into a per-step penalty and let PPO retrain the
+*action* policy to avoid the states that trigger it. It corrects **behaviour**, indirectly,
+through the reward gradient.
+
+**The equation** (file: `compute_r_reason.py`). Because EAP was unreliable (r = 0.15), the
+deployed R_reason uses the activation-based form of the violation (goal/proxy *activation* rather
+than causal weight), normalised to its training baseline:
+
+```
+V_drop  = max(0,  goal_baseline  − goal_signal)  / goal_baseline      # goal feature went quiet
+V_gain  = max(0,  proxy_signal − proxy_baseline)  / proxy_baseline    # proxy feature got loud
+R_reason = − ( α·V_drop + β·V_gain )                                  # α = β = 1,  R_reason ∈ [−2, 0]
+
+R_total  = R_env + λ · R_reason                                       # λ swept over {0.1, 0.5, 1.0}
+```
+
+**What we did:** wrapped the test-distribution environment so every step's reward becomes
+`R_env + λ·R_reason` (the frozen policy + frozen SAE compute R_reason; only the *learning* policy
+updates), then ran 50k PPO steps per (λ, seed) and measured the resulting failure rate.
+
+**What we found:** at λ = 0.1 it fixed the (6,5) blind spot completely (100% → 0%); at λ ≥ 0.5 it
+collapsed the policy (100% failure) — the same dose-sensitivity as Experiment 3.
+
+### 7.4 Response 2 — Activation steering
+
+**What it means:** a pure **inference-time** intervention. No reward, no gradient, no weight
+change. When the graph says the goal feature has lost causal control, we *edit the representation
+on the fly* to push the goal feature's direction back in, then let the unchanged policy head act
+on the edited representation. It is the cheapest possible response — one vector addition per
+flagged step.
+
+**The mechanism** (file: `response_activation_steering.py`):
+
+```
+v_steer = normalise( decoder_column(top_goal_feature) · std )      # goal direction in raw-rep space
+
+# at each step:
+trigger (I3) :  goal_c_live < 0.6 · goal_c*_baseline               # goal lost causal weight?
+if triggered :  r' = r + α · v_steer                               # inject the goal direction
+else         :  r' = r
+action = argmax( action_net(r') )                                  # policy head acts on r'
+```
+
+α was swept over {0.5, 1.0, 2.0}. The policy weights are never touched.
+
+**What we found:** at (6,5) the trigger almost never fired (steer_fraction = **0.01**) because the
+goal feature stays active the whole time — so steering had nothing to do and failure stayed 100%.
+Steering is the right tool for a *missing* goal signal, not for a goal signal that is present but
+not driving the action.
+
+### 7.5 Response 3 — Targeted fine-tuning (circuit repair)
+
+**What it means:** a **weight-level** repair. Instead of the environment reward, define a loss
+that directly pushes the policy's internal goal-feature activation back up toward its training
+baseline (and proxy activation down), and fine-tune **only the feature-extractor weights** with
+it. It is the most expensive response and the only one that *persists* across episodes, because
+the weights actually change.
+
+**The loss** (file: `response_fine_tuning.py`):
+
+```
+g_act = mean activation of F_goal  (differentiable through the feature extractor)
+p_act = mean activation of F_proxy
+
+L_finetune = ( g_act − goal_baseline )²  +  ( p_act − 0.5·proxy_baseline )²
+
+# optimise L_finetune over the feature-extractor params only;  Adam, lr = 1e-5, ~5000 steps,
+# on 2000 test-distribution observations.  No R_env is used — this is pure circuit repair.
+```
+
+After fine-tuning we re-measured failure rate, and flagged `circuit_repaired = True` if the
+goal-feature activation recovered above 60% of the training baseline.
+
+**What we found — the standout dissociation:** `circuit_repaired = True` in 100% of seeds (the
+goal representation *was* restored) **yet failure stayed at 100%** (train reward 0.75–0.90, no
+catastrophic forgetting). Repairing the goal *representation* did nothing, because the broken link
+at (6,5) was from goal **to action** (routing), not the representation itself. **Circuit repair ≠
+behavioral correction.**
+
+### 7.6 Why the three differ
+
+| Response | Acts on | Cost | Persists | Fixes (6,5)? |
+|---|---|---|---|---|
+| R_reason | action policy (reward gradient) | high (50k PPO steps) | no (per-episode) | **Yes, at λ=0.1** |
+| Activation steering | representation (inference-time edit) | lowest (1 vector add) | no (weights unchanged) | No (never triggers) |
+| Targeted fine-tuning | feature-extractor weights | highest (gradient repair) | yes | No (repairs wrong thing) |
+
+The (6,5) failure is a **routing** failure. Only the response that retrains the *action* policy
+(R_reason) reaches it; the two responses that target the *representation* (steering, fine-tuning)
+cannot, because the representation was never the problem.
+
+---
+
+## 8. Every Metric, In One Place
 
 **Policies**
 
@@ -444,7 +601,7 @@ profiles) **SUPPORTED, with inverted ordering** and a clean repair-vs-behaviour 
 
 ---
 
-## 8. What Each Experiment Proved
+## 9. What Each Experiment Proved
 
 1. **Experiment 1** proved a pre-failure signal *appears* to exist (k = 157.8) — but could not
    tell whether it was a goal circuit or a perceptual artefact.
@@ -463,7 +620,7 @@ profiles) **SUPPORTED, with inverted ordering** and a clean repair-vs-behaviour 
 
 ---
 
-## 9. The Unified Conclusion
+## 10. The Unified Conclusion
 
 > **Mechanistic monitoring and correction of RL agents is real, but conditional. It works exactly
 > when the agent has the representation you are trying to monitor — and the response must match
@@ -482,7 +639,7 @@ profiles) **SUPPORTED, with inverted ordering** and a clean repair-vs-behaviour 
 
 ---
 
-## 10. What the Paper Can Honestly Claim — and What Is Future Work
+## 11. What the Paper Can Honestly Claim — and What Is Future Work
 
 **Supported by evidence in this repository:**
 - Randomising the training goal produces a measurable goal representation (corr 0.44 vs 0.005) —
@@ -508,7 +665,7 @@ robust to λ; and testing whether the k_graph-vs-k_activation gap widens with po
 
 ---
 
-## 11. Provenance — Where Every Number Lives (Reproducibility)
+## 12. Provenance — Where Every Number Lives (Reproducibility)
 
 Every metric above is read directly from these files (all committed; large binaries are
 regenerated by the scripts and kept local per `.gitignore`).

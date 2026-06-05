@@ -1,6 +1,37 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [14:31] [EXP4] Fine-tune seed=123
+- fail=1.000 train_rew=0.750 repaired=True forget=False
+
+## [14:30] [EXP4] Fine-tune seed=42
+- fail=1.000 train_rew=0.800 repaired=True forget=False
+
+## [14:29] [EXP4] Fine-tune seed=0
+- fail=1.000 train_rew=0.900 repaired=True forget=False
+
+## [14:29] [EXP4] Steering α=2.0
+- fail=1.000 reward=0.000 steer_frac=0.01
+
+## [14:28] [EXP4] Steering α=1.0
+- fail=1.000 reward=0.000 steer_frac=0.01
+
+## [14:26] [EXP4] Steering α=0.5
+- fail=1.000 reward=0.000 steer_frac=0.01
+
+## [14:25] [EXP4] Phase 3 — baseline + k done
+- k_act: nan ± nan
+- k_graph: 200.0 ± 0.0
+- baseline failure rate: 1.000
+
+## [14:24] [EXP4] baseline signals
+- goal_sig 0.4343, proxy_sig 0.2819
+
+## [14:24] [EXP4] Phases 3-5 START
+- goal_features: [31, 280, 338, 117, 291]
+- proxy_features: [304, 227, 49, 104, 196, 137]
+- SCALE: R_reason 50k steps, λ[0.1, 0.5, 1.0], 2 seeds (reduced from spec to fit budget)
+
 ## [14:24] [EXP4] Phase 2 COMPLETE
 - W validation r: 0.5914 (PASS)
 - goal_c*: 0.001128, proxy_c*: 0.000998

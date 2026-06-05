@@ -1,0 +1,54 @@
+{
+  "test_goal": [
+    6,
+    5
+  ],
+  "lambda": 0.1,
+  "n_steps_rollout": 512,
+  "initial_test_failure": 1.0,
+  "final_test_failure": 0.0,
+  "corrected_at_steps": 8000,
+  "final_train_failure": 0.3,
+  "curve": [
+    {
+      "steps": 0,
+      "test_failure": 1.0,
+      "train_reward_proxy": 1.0
+    },
+    {
+      "steps": 4000,
+      "test_failure": 1.0,
+      "train_failure": 0.1
+    },
+    {
+      "steps": 8000,
+      "test_failure": 0.0,
+      "train_failure": 0.3
+    },
+    {
+      "steps": 12000,
+      "test_failure": 0.0,
+      "train_failure": 0.3
+    },
+    {
+      "steps": 16000,
+      "test_failure": 0.0,
+      "train_failure": 0.3
+    },
+    {
+      "steps": 20000,
+      "test_failure": 1.0,
+      "train_failure": 0.4
+    },
+    {
+      "steps": 24000,
+      "test_failure": 0.0,
+      "train_failure": 0.3
+    },
+    {
+      "steps": 28000,
+      "test_failure": 0.0,
+      "train_failure": 0.3
+    }
+  ]
+}

@@ -1,6 +1,92 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [19:53] [EXP4-Q5] D step 0
+- shortcut_rate=0.00 shortcut_causal=0.00189 real_causal=0.00064
+
+## [19:53] [EXP4-Q5] D — induce reward hacking (shortcut=0.9)
+
+
+## [19:53] [EXP4-Q5] C — features identified
+- shortcut_feat 38 (corr 0.263)
+- real_feat 120 (corr -0.292)
+
+## [19:53] [EXP4-Q5] B done
+- SAE dead 0/384
+
+## [19:50] [EXP4-Q4] COMPLETE
+- λ=0.05: fail=0.500±0.500
+- λ=0.1: fail=0.000±0.000
+- λ=0.15: fail=0.000±0.000
+- λ=0.2: fail=1.000±0.000
+- λ=0.3: fail=1.000±0.000
+- λ=0.5: fail=1.000±0.000
+
+## [19:50] [EXP4-Q4] λ=0.5 seed=42
+- fail=1.000 reward=0.000 (13 min)
+
+## [19:48] [EXP4-Q5] B — collect activations + train SAE
+- 60,000
+
+## [19:48] [EXP4-Q5] A done
+- shortcut_rate=0.00 real_rate=0.93 none=0.07 (31 min)
+
+## [19:37] [EXP4-Q4] λ=0.5 seed=0
+- fail=1.000 reward=0.000 (13 min)
+
+## [19:24] [EXP4-Q4] λ=0.3 seed=42
+- fail=1.000 reward=0.000 (13 min)
+
+## [19:18] [EXP4-Q5] A — train CoinHack policy (shortcut=0.3)
+- 300,000 steps
+
+## [19:18] [EXP4-Q5] START — reward-hacking failure mode
+
+
+## [19:11] [EXP4-Q4] λ=0.3 seed=0
+- fail=1.000 reward=0.000 (12 min)
+
+## [18:58] [EXP4-Q4] λ=0.2 seed=42
+- fail=1.000 reward=0.000 (12 min)
+
+## [18:46] [EXP4-Q4] λ=0.2 seed=0
+- fail=1.000 reward=0.000 (13 min)
+
+## [18:33] [EXP4-Q4] λ=0.15 seed=42
+- fail=0.000 reward=1.000 (14 min)
+
+## [18:19] [EXP4-Q4] λ=0.15 seed=0
+- fail=0.000 reward=1.000 (13 min)
+
+## [18:06] [EXP4-Q4] λ=0.1 seed=42
+- fail=0.000 reward=1.000 (14 min)
+
+## [17:51] [EXP4-Q4] λ=0.1 seed=0
+- fail=0.000 reward=1.000 (14 min)
+
+## [17:38] [EXP4-Q4] λ=0.05 seed=42
+- fail=1.000 reward=0.000 (10 min)
+
+## [17:34] [EXP4-Q6] COMPLETE
+- initial test fail 1.00 -> final 0.00
+- corrected at 8000 steps
+- final train-dist failure 0.3
+
+## [17:34] [EXP4-Q6] 28000 steps
+- test_fail=0.00 train_fail=0.30
+
+## [17:33] [EXP4-Q6] 24000 steps
+- test_fail=0.00 train_fail=0.30
+
+## [17:33] [EXP4-Q6] 20000 steps
+- test_fail=1.00 train_fail=0.40
+
+## [17:32] [EXP4-Q6] 16000 steps
+- test_fail=0.00 train_fail=0.30
+
+## [17:31] [EXP4-Q6] 12000 steps
+- test_fail=0.00 train_fail=0.30
+
 ## [17:30] [EXP4-Q6] 8000 steps
 - test_fail=0.00 train_fail=0.30
 

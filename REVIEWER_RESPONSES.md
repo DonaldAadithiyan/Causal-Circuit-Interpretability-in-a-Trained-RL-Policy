@@ -10,9 +10,9 @@ answered honestly. Every number below is traceable to a file under
 | Q1 | Is (6,5) cherry-picked? | **No — systematic** | graph detects 100% of 5 blind spots; (6,5) is 1 of 2 routing failures |
 | Q2 | Does it hold at scale? | **Open (no local GPU)** | honest scope statement + the partial evidence we have |
 | Q3 | Is the diagnosis automatable? | **Yes** | classifier 100% accurate; steering engages 94% on representation vs 0.5% on routing |
-| Q4 | How narrow is the λ band? | **Wider below, hard ceiling** | λ∈{0.05,0.1} → 0% ; λ≥0.5 → 100% (finer sweep) |
-| Q5 | Other failure modes? | **Designed, not yet run** | full reward-hacking protocol specified below |
-| Q6 | Online correction possible? | **Yes** | (6,5) corrected 100%→0% within ~8,000 online steps, no forgetting |
+| Q4 | How narrow is the λ band? | **Narrow: [0.10, 0.15]** | reliable band [0.1,0.15]; λ=0.05 unstable; cliff at λ≥0.2 |
+| Q5 | Other failure modes? | **Running (reward hacking)** | dual-reward policy + signal-vs-behavior tracking |
+| Q6 | Online correction possible? | **Yes (not monotonic)** | (6,5) 100%→0% by ~8,000 online steps; one transient relapse at 20k |
 
 ---
 
@@ -121,32 +121,34 @@ it was tested on a *routing* failure; on *representation* failures it is the res
 the (6,5) routing blind spot. Script: `reviewer_q4_lambda_sweep.py`. Data:
 `reviewer/q4_lambda_sweep.json`.
 
-**Result (running — partial as of writing; table auto-completes on finish):**
+**Result (complete — 2 seeds × 40k steps each):**
 
-| λ | mean failure rate |
-|---|---|
-| 0.05 | **0.00** (confirmed) |
-| 0.10 | **0.00** (confirmed, also Exp4) |
-| 0.15 | _sweeping_ |
-| 0.20 | _sweeping_ |
-| 0.30 | _sweeping_ |
-| 0.50 | **1.00** (Exp4) |
+| λ | failure (per seed) | mean | region |
+|---|---|---|---|
+| 0.05 | [0.0, **1.0**] | 0.50 | **unstable** (seed-dependent) |
+| 0.10 | [0.0, 0.0] | **0.00** | **reliable working band** |
+| 0.15 | [0.0, 0.0] | **0.00** | **reliable working band** |
+| 0.20 | [1.0, 1.0] | 1.00 | collapse |
+| 0.30 | [1.0, 1.0] | 1.00 | collapse |
+| 0.50 | [1.0, 1.0] | 1.00 | collapse |
 
-**Interpretation so far.** The working band is **wider at the bottom than Experiment 3 suggested**
-— λ = 0.05 already fixes the blind spot (0% failure), so the lower edge is ≤ 0.05. The collapse at
-λ ≥ 0.5 is a hard ceiling (the dense penalty overwhelms the sparse reward). The finer sweep is
-locating the upper edge between 0.1 and 0.5. The honest headline is unchanged but sharpened: there
-is a **usable low-λ region** (≤ 0.05 up to at least 0.1) and a **catastrophic high-λ region**
-(≥ 0.5); calibration matters but the safe region is not razor-thin.
-
-*(This section is finalized with the full table once the background sweep completes.)*
+**Interpretation.** The finer 2-seed sweep gives a sharper — and more honest — answer than the
+3-value Experiment 3/4 grid. The **reliable working band is λ ∈ [0.10, 0.15]** (0% failure, both
+seeds). Below it, **λ = 0.05 is unstable** (one seed fixed the blind spot, the other did not — so
+the earlier single-seed "0.05 works" was an artifact). Above it there is a **sharp collapse cliff
+at λ = 0.20** (100% failure from 0.20 onward). So the band is genuinely narrow — roughly a
+1.5× window from 0.10 to 0.15 — with a hard ceiling. This **confirms the limitation honestly and
+quantifies it**: R_reason needs per-setting λ calibration, and the safe region, while real, is not
+wide. (A practical mitigation — adaptive λ that backs off when training destabilises — is the
+obvious follow-up.)
 
 ---
 
-## Q5 — Does it work for other failure modes? **Protocol specified; not yet run.**
+## Q5 — Does it work for other failure modes (reward hacking)? **Running.**
 
-This is a genuinely new experiment (new environment + new policy), and we did not rush a possibly
-flawed version inside this session. The exact protocol, ready to run:
+This is a genuinely new experiment (new environment + new policy). It is **implemented and running**
+(`reviewer_q5_reward_hacking.py`, env `envs/coin_hack_env.py`); the result table and the
+graph-signal-vs-behavior plot are patched in on completion. The protocol:
 
 1. **Environment.** Add a second "shortcut" object to CoinCollect at a fixed easy cell near the
    start, giving a *small* reward (0.3) on contact; the real goal (random position) gives 1.0.
@@ -172,23 +174,31 @@ continuous deployment run, not a separate training phase. Measured the failure-r
 deployment steps, plus training-distribution failure (catastrophic-forgetting check). Script:
 `reviewer_q6_online.py`. Data: `reviewer/q6_online_correction.json`.
 
-**Result.**
+**Result (full 0–28k curve).**
 
-| Online deployment steps | (6,5) failure | train-dist failure |
+| Online steps | (6,5) failure | train-dist failure |
 |---|---|---|
 | 0 | 1.00 | — |
 | 4,000 | 1.00 | 0.10 |
 | 8,000 | **0.00** | 0.30 |
 | 12,000 | **0.00** | 0.30 |
+| 16,000 | **0.00** | 0.30 |
+| 20,000 | **1.00** ⚠️ | 0.40 |
+| 24,000 | **0.00** | 0.30 |
+| 28,000 | **0.00** | 0.30 |
 
 **Conclusion.** The agent **corrects within a single online deployment run** — the (6,5) blind
-spot goes from 100% failure to **0% by ~8,000 online steps** — with **no catastrophic forgetting**
-(training-distribution failure stays ~0.30, i.e. the policy still solves the rest of the
-distribution). This upgrades the Experiment 4 claim from *"R_reason fixes the blind spot given a
-separate 50k-step retraining phase"* to *"R_reason corrects the blind spot online, within
-deployment, in ~8k steps"* — the substantially stronger result the reviewer asked for.
+spot goes from 100% failure to **0% by ~8,000 online steps** — and stays corrected at 5 of the 6
+subsequent checkpoints, with **no catastrophic forgetting** (training-distribution failure stays
+~0.30, i.e. the policy still solves the rest of the distribution). This upgrades the Experiment 4
+claim from *"R_reason fixes the blind spot given a separate 50k-step retraining phase"* to
+*"R_reason corrects the blind spot online, within deployment, in ~8k steps."*
 
-*(Full 0–28k curve in the JSON / plot; values above are the decisive early points.)*
+**Honesty note.** The correction is **not perfectly monotonic** — there is a transient relapse at
+20k steps (failure briefly returns to 1.00 before recovering at 24k). Continued online PPO updates
+can momentarily destabilise the routing before it re-settles. The honest claim is therefore "online
+correction works and is fast (~8k steps), but online updating should be stopped or annealed once
+the failure clears, rather than run open-endedly." This is the same λ/stability theme as Q4.
 
 ---
 

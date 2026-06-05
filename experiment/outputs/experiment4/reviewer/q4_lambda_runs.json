@@ -1,0 +1,86 @@
+[
+  {
+    "lam": 0.05,
+    "seed": 0,
+    "failure_rate": 0.0,
+    "mean_reward": 1.0,
+    "elapsed_min": 12.763886336485545
+  },
+  {
+    "lam": 0.05,
+    "seed": 42,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 9.794901851812998
+  },
+  {
+    "lam": 0.1,
+    "seed": 0,
+    "failure_rate": 0.0,
+    "mean_reward": 1.0,
+    "elapsed_min": 13.95624768336614
+  },
+  {
+    "lam": 0.1,
+    "seed": 42,
+    "failure_rate": 0.0,
+    "mean_reward": 1.0,
+    "elapsed_min": 14.35287155310313
+  },
+  {
+    "lam": 0.15,
+    "seed": 0,
+    "failure_rate": 0.0,
+    "mean_reward": 1.0,
+    "elapsed_min": 13.190974601109822
+  },
+  {
+    "lam": 0.15,
+    "seed": 42,
+    "failure_rate": 0.0,
+    "mean_reward": 1.0,
+    "elapsed_min": 14.06508275270462
+  },
+  {
+    "lam": 0.2,
+    "seed": 0,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 12.784877681732178
+  },
+  {
+    "lam": 0.2,
+    "seed": 42,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 12.432618796825409
+  },
+  {
+    "lam": 0.3,
+    "seed": 0,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 12.18555452823639
+  },
+  {
+    "lam": 0.3,
+    "seed": 42,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 13.104804384708405
+  },
+  {
+    "lam": 0.5,
+    "seed": 0,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 12.991385233402251
+  },
+  {
+    "lam": 0.5,
+    "seed": 42,
+    "failure_rate": 1.0,
+    "mean_reward": 0.0,
+    "elapsed_min": 12.909155933062236
+  }
+]

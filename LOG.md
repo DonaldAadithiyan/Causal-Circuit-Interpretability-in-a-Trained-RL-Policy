@@ -1,6 +1,41 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [16:18] [EXP4] COMPLETE — EXPLAINER4 rewritten
+- H1 PASSED: random-goal policy goal corr 0.44 vs 0.005 fixed-goal (88x) — SAEv3 0/384 dead
+- DISCOVERY: at (6,5) blind spot, k_activation=nan (goal feature stays active=blind) but k_graph=200 (graph fires step 0)
+  → causal graph detects goal-visible-but-misrouted failure that activation monitoring CANNOT see
+- 3-response comparison (inverts predicted hierarchy):
+  R_reason λ=0.1: 100%→0% FIXED (but λ≥0.5 → 100%, dose-sensitive like Exp3)
+  Steering: 100% (never triggers, goal feature active)
+  Fine-tuning: 100% but circuit_repaired=True → circuit repair ≠ behavioral correction
+- Routing failure: only behavioral retraining (R_reason) fixes it; representation-targeting responses fail
+
+## [16:14] [EXP4] Phase 5 COMPLETE — comparison
+- baseline: 1.000
+- R_reason (λ=0.1): 0.000
+- Steering (α=0.5): 1.000
+- Fine-tuning: 1.000 (repaired 100%)
+- k_act=nan, k_graph=200.0
+
+## [16:14] [EXP4] R_reason λ=1.0 seed=42
+- fail=1.000 reward=0.000
+
+## [15:57] [EXP4] R_reason λ=1.0 seed=0
+- fail=1.000 reward=0.000
+
+## [15:40] [EXP4] R_reason λ=0.5 seed=42
+- fail=1.000 reward=0.000
+
+## [15:23] [EXP4] R_reason λ=0.5 seed=0
+- fail=1.000 reward=0.000
+
+## [15:05] [EXP4] R_reason λ=0.1 seed=42
+- fail=0.000 reward=1.000
+
+## [14:47] [EXP4] R_reason λ=0.1 seed=0
+- fail=0.000 reward=1.000
+
 ## [14:31] [EXP4] Fine-tune seed=123
 - fail=1.000 train_rew=0.750 repaired=True forget=False
 

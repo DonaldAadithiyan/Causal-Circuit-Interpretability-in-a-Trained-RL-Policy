@@ -1,0 +1,157 @@
+{
+  "baseline": {
+    "failure_rate": 1.0
+  },
+  "r_reason": {
+    "failure_rate": 0.0,
+    "best_lambda": 0.1,
+    "circuit_repaired": false,
+    "persists": false
+  },
+  "activation_steering": {
+    "failure_rate": 1.0,
+    "best_alpha": 0.5,
+    "circuit_repaired": false,
+    "persists": false
+  },
+  "targeted_finetuning": {
+    "failure_rate": 1.0,
+    "circuit_repaired_frac": 1.0,
+    "persists": true
+  },
+  "k_activation": NaN,
+  "k_graph": 200.0,
+  "phase3": {
+    "mean_k_activation": NaN,
+    "std_k_activation": NaN,
+    "mean_k_graph": 200.0,
+    "std_k_graph": 0.0,
+    "baseline_failure_rate": 1.0,
+    "n_kact": 0,
+    "n_kgraph": 30
+  },
+  "r_reason_detail": {
+    "runs": [
+      {
+        "lam": 0.1,
+        "seed": 0,
+        "failure_rate": 0.0,
+        "mean_reward": 1.0
+      },
+      {
+        "lam": 0.1,
+        "seed": 42,
+        "failure_rate": 0.0,
+        "mean_reward": 1.0
+      },
+      {
+        "lam": 0.5,
+        "seed": 0,
+        "failure_rate": 1.0,
+        "mean_reward": 0.0
+      },
+      {
+        "lam": 0.5,
+        "seed": 42,
+        "failure_rate": 1.0,
+        "mean_reward": 0.0
+      },
+      {
+        "lam": 1.0,
+        "seed": 0,
+        "failure_rate": 1.0,
+        "mean_reward": 0.0
+      },
+      {
+        "lam": 1.0,
+        "seed": 42,
+        "failure_rate": 1.0,
+        "mean_reward": 0.0
+      }
+    ],
+    "lambda_means": {
+      "0.1": 0.0,
+      "0.5": 1.0,
+      "1.0": 1.0
+    },
+    "best_lambda": 0.1,
+    "best_failure_rate": 0.0
+  },
+  "steering_detail": [
+    {
+      "alpha": 0.5,
+      "failure_rate": 1.0,
+      "mean_reward": 0.0,
+      "steer_fraction": 0.010000000000000002
+    },
+    {
+      "alpha": 1.0,
+      "failure_rate": 1.0,
+      "mean_reward": 0.0,
+      "steer_fraction": 0.010000000000000002
+    },
+    {
+      "alpha": 2.0,
+      "failure_rate": 1.0,
+      "mean_reward": 0.0,
+      "steer_fraction": 0.010000000000000002
+    }
+  ],
+  "finetuning_detail": [
+    {
+      "seed": 0,
+      "ft_steps": 5000,
+      "elapsed_min": 0.11347915331522623,
+      "test_failure_rate": 1.0,
+      "test_mean_reward": 0.0,
+      "train_mean_reward": 0.9,
+      "catastrophic_forgetting": false,
+      "goal_act_post": 0.7933827638626099,
+      "goal_act_baseline": 0.43427129392316405,
+      "circuit_repaired": true
+    },
+    {
+      "seed": 42,
+      "ft_steps": 5000,
+      "elapsed_min": 0.10404993295669555,
+      "test_failure_rate": 1.0,
+      "test_mean_reward": 0.0,
+      "train_mean_reward": 0.8,
+      "catastrophic_forgetting": false,
+      "goal_act_post": 0.7932080626487732,
+      "goal_act_baseline": 0.43427129392316405,
+      "circuit_repaired": true
+    },
+    {
+      "seed": 123,
+      "ft_steps": 5000,
+      "elapsed_min": 0.10389125347137451,
+      "test_failure_rate": 1.0,
+      "test_mean_reward": 0.0,
+      "train_mean_reward": 0.75,
+      "catastrophic_forgetting": false,
+      "goal_act_post": 0.7936045527458191,
+      "goal_act_baseline": 0.43427129392316405,
+      "circuit_repaired": true
+    }
+  ],
+  "baseline_goal_sig": 0.43427129392316405,
+  "baseline_proxy_sig": 0.2818601462283934,
+  "goal_features": [
+    31,
+    280,
+    338,
+    117,
+    291
+  ],
+  "proxy_features": [
+    304,
+    227,
+    49,
+    104,
+    196,
+    137
+  ],
+  "h1_max_corr": 0.4395257493349892,
+  "elapsed_min": 109.71147830088934
+}

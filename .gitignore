@@ -236,10 +236,13 @@ experiment/outputs/graphs/*.npy
 # Numpy arrays (all experiment subdirs)
 experiment/outputs/**/*.npy
 
-# Experiment 2b / 3 — generated plots and policy checkpoints (large, reproducible)
+# Experiment 2b / 3 / 4 — generated plots and policy checkpoints (large, reproducible)
 experiment/outputs/experiment2b/plots/
 experiment/outputs/experiment3/plots/
 experiment/outputs/experiment3/**/*.zip
+experiment/outputs/experiment4/plots/
+experiment/outputs/experiment4/**/*.zip
+experiment/outputs/experiment4/**/*.pt
 
 # ── Experiment: important results (push these) ───────────────────────────────
 # These are small JSON files that record the actual findings.
@@ -257,3 +260,8 @@ experiment/outputs/experiment3/**/*.zip
 !experiment/outputs/experiment2b/experiment2b_results.json
 !experiment/outputs/experiment3/experiment3_results.json
 !experiment/outputs/experiment3/option_b/**/result_seed*.json
+!experiment/outputs/experiment4/experiment4_results.json
+!experiment/outputs/experiment4/goal_features.json
+!experiment/outputs/experiment4/graphs/G_star_v3_metadata.json
+!experiment/outputs/experiment4/policy_randomgoal/eval_results.json
+!experiment/outputs/experiment4/activations/meta.json

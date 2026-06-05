@@ -1,0 +1,12 @@
+{
+  "label": "lam0.1_seed42",
+  "lam": 0.1,
+  "seed": 42,
+  "total_timesteps": 100000,
+  "elapsed_min": 24.559855782985686,
+  "test_mean_reward": 0.0,
+  "test_std_reward": 0.0,
+  "test_failure_rate": 1.0,
+  "train_mean_reward": 0.0,
+  "catastrophic_forgetting": true
+}

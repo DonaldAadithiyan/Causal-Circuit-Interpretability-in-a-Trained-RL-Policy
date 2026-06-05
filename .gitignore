@@ -233,13 +233,27 @@ experiment/outputs/checkpoints/ppo_impala_*
 # Numpy arrays
 experiment/outputs/graphs/*.npy
 
+# Numpy arrays (all experiment subdirs)
+experiment/outputs/**/*.npy
+
+# Experiment 2b / 3 — generated plots and policy checkpoints (large, reproducible)
+experiment/outputs/experiment2b/plots/
+experiment/outputs/experiment3/plots/
+experiment/outputs/experiment3/**/*.zip
+
 # ── Experiment: important results (push these) ───────────────────────────────
-# These are small JSON/PT files that record the actual findings.
+# These are small JSON files that record the actual findings.
 # Explicitly un-ignore them even if parent dirs were ignored above:
 !experiment/outputs/checkpoints/eval_results.json
 !experiment/outputs/feature_labels.json
 !experiment/outputs/feature_index.json
+!experiment/outputs/feature_labels_v2.json
+!experiment/outputs/feature_index_v2.json
 !experiment/outputs/hypothesis_verdicts.json
 !experiment/outputs/misgeneralization_results.json
 !experiment/outputs/sae_results.json
 !experiment/outputs/graphs/causal_graph.json
+!experiment/outputs/graphs/G_star_v2_metadata.json
+!experiment/outputs/experiment2b/experiment2b_results.json
+!experiment/outputs/experiment3/experiment3_results.json
+!experiment/outputs/experiment3/option_b/**/result_seed*.json

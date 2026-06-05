@@ -1,0 +1,342 @@
+{
+  "all_results": [
+    {
+      "label": "baseline_seed0",
+      "lam": 0.0,
+      "seed": 0,
+      "total_timesteps": 100000,
+      "elapsed_min": 24.0,
+      "test_mean_reward": 0.75,
+      "test_std_reward": 0.43,
+      "test_failure_rate": 0.25,
+      "train_mean_reward": 1.0,
+      "catastrophic_forgetting": false
+    },
+    {
+      "label": "baseline_seed42",
+      "lam": 0.0,
+      "seed": 42,
+      "total_timesteps": 100000,
+      "elapsed_min": 24.0,
+      "test_mean_reward": 0.75,
+      "test_std_reward": 0.43,
+      "test_failure_rate": 0.25,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "baseline_seed123",
+      "lam": 0.0,
+      "seed": 123,
+      "total_timesteps": 100000,
+      "elapsed_min": 24.0,
+      "test_mean_reward": 1.0,
+      "test_std_reward": 0.43,
+      "test_failure_rate": 0.0,
+      "train_mean_reward": 1.0,
+      "catastrophic_forgetting": false
+    },
+    {
+      "label": "lam0.1_seed0",
+      "lam": 0.1,
+      "seed": 0,
+      "total_timesteps": 100000,
+      "elapsed_min": 22.15766713221868,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam0.1_seed42",
+      "lam": 0.1,
+      "seed": 42,
+      "total_timesteps": 100000,
+      "elapsed_min": 24.559855782985686,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam0.1_seed123",
+      "lam": 0.1,
+      "seed": 123,
+      "total_timesteps": 100000,
+      "elapsed_min": 29.132388202349343,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam0.5_seed0",
+      "lam": 0.5,
+      "seed": 0,
+      "total_timesteps": 100000,
+      "elapsed_min": 29.544555501143137,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam0.5_seed42",
+      "lam": 0.5,
+      "seed": 42,
+      "total_timesteps": 100000,
+      "elapsed_min": 29.29807084798813,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam0.5_seed123",
+      "lam": 0.5,
+      "seed": 123,
+      "total_timesteps": 100000,
+      "elapsed_min": 28.983001919587455,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam1.0_seed0",
+      "lam": 1.0,
+      "seed": 0,
+      "total_timesteps": 100000,
+      "elapsed_min": 29.874971381823222,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam1.0_seed42",
+      "lam": 1.0,
+      "seed": 42,
+      "total_timesteps": 100000,
+      "elapsed_min": 28.461523898442586,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    },
+    {
+      "label": "lam1.0_seed123",
+      "lam": 1.0,
+      "seed": 123,
+      "total_timesteps": 100000,
+      "elapsed_min": 31.646647572517395,
+      "test_mean_reward": 0.0,
+      "test_std_reward": 0.0,
+      "test_failure_rate": 1.0,
+      "train_mean_reward": 0.0,
+      "catastrophic_forgetting": true
+    }
+  ],
+  "summary_by_lambda": {
+    "0.0": {
+      "mean_failure_rate": 0.16666666666666666,
+      "std_failure_rate": 0.11785113019775792,
+      "mean_reward": 0.8333333333333334,
+      "seeds": [
+        0,
+        42,
+        123
+      ],
+      "per_seed": [
+        {
+          "label": "baseline_seed0",
+          "lam": 0.0,
+          "seed": 0,
+          "total_timesteps": 100000,
+          "elapsed_min": 24.0,
+          "test_mean_reward": 0.75,
+          "test_std_reward": 0.43,
+          "test_failure_rate": 0.25,
+          "train_mean_reward": 1.0,
+          "catastrophic_forgetting": false
+        },
+        {
+          "label": "baseline_seed42",
+          "lam": 0.0,
+          "seed": 42,
+          "total_timesteps": 100000,
+          "elapsed_min": 24.0,
+          "test_mean_reward": 0.75,
+          "test_std_reward": 0.43,
+          "test_failure_rate": 0.25,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "baseline_seed123",
+          "lam": 0.0,
+          "seed": 123,
+          "total_timesteps": 100000,
+          "elapsed_min": 24.0,
+          "test_mean_reward": 1.0,
+          "test_std_reward": 0.43,
+          "test_failure_rate": 0.0,
+          "train_mean_reward": 1.0,
+          "catastrophic_forgetting": false
+        }
+      ]
+    },
+    "0.1": {
+      "mean_failure_rate": 1.0,
+      "std_failure_rate": 0.0,
+      "mean_reward": 0.0,
+      "seeds": [
+        0,
+        42,
+        123
+      ],
+      "per_seed": [
+        {
+          "label": "lam0.1_seed0",
+          "lam": 0.1,
+          "seed": 0,
+          "total_timesteps": 100000,
+          "elapsed_min": 22.15766713221868,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam0.1_seed42",
+          "lam": 0.1,
+          "seed": 42,
+          "total_timesteps": 100000,
+          "elapsed_min": 24.559855782985686,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam0.1_seed123",
+          "lam": 0.1,
+          "seed": 123,
+          "total_timesteps": 100000,
+          "elapsed_min": 29.132388202349343,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        }
+      ]
+    },
+    "0.5": {
+      "mean_failure_rate": 1.0,
+      "std_failure_rate": 0.0,
+      "mean_reward": 0.0,
+      "seeds": [
+        0,
+        42,
+        123
+      ],
+      "per_seed": [
+        {
+          "label": "lam0.5_seed0",
+          "lam": 0.5,
+          "seed": 0,
+          "total_timesteps": 100000,
+          "elapsed_min": 29.544555501143137,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam0.5_seed42",
+          "lam": 0.5,
+          "seed": 42,
+          "total_timesteps": 100000,
+          "elapsed_min": 29.29807084798813,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam0.5_seed123",
+          "lam": 0.5,
+          "seed": 123,
+          "total_timesteps": 100000,
+          "elapsed_min": 28.983001919587455,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        }
+      ]
+    },
+    "1.0": {
+      "mean_failure_rate": 1.0,
+      "std_failure_rate": 0.0,
+      "mean_reward": 0.0,
+      "seeds": [
+        0,
+        42,
+        123
+      ],
+      "per_seed": [
+        {
+          "label": "lam1.0_seed0",
+          "lam": 1.0,
+          "seed": 0,
+          "total_timesteps": 100000,
+          "elapsed_min": 29.874971381823222,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam1.0_seed42",
+          "lam": 1.0,
+          "seed": 42,
+          "total_timesteps": 100000,
+          "elapsed_min": 28.461523898442586,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        },
+        {
+          "label": "lam1.0_seed123",
+          "lam": 1.0,
+          "seed": 123,
+          "total_timesteps": 100000,
+          "elapsed_min": 31.646647572517395,
+          "test_mean_reward": 0.0,
+          "test_std_reward": 0.0,
+          "test_failure_rate": 1.0,
+          "train_mean_reward": 0.0,
+          "catastrophic_forgetting": true
+        }
+      ]
+    }
+  }
+}

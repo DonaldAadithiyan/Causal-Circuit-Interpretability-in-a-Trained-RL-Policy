@@ -11,11 +11,11 @@ import numpy as np
 
 
 class TopKSAEv2(nn.Module):
-    def __init__(self, input_dim: int, hidden_factor: int = 2, k: int = 32,
+    def __init__(self, input_dim: int, hidden_factor: float = 2, k: int = 32,
                  resample_threshold: int = 500):
         super().__init__()
         self.input_dim = input_dim
-        self.hidden_dim = input_dim * hidden_factor
+        self.hidden_dim = int(input_dim * hidden_factor)
         self.k = k
         self.resample_threshold = resample_threshold
 
@@ -63,11 +63,13 @@ class TopKSAEv2(nn.Module):
     def loss(self, x: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
         return ((x - x_hat) ** 2).mean()
 
-    def resample_dead_features(self, x_batch: torch.Tensor) -> int:
+    def resample_dead_features(self, x_batch: torch.Tensor, optimizer=None) -> int:
         """
-        Reinitialise decoder + encoder directions for dead features.
-        Called every N batches during training.
-        Uses input samples from the current batch as new feature directions.
+        Anthropic-style neuron resampling for dead features.
+        - Sample inputs with probability proportional to reconstruction error^2
+        - Set decoder direction = normalized high-error input
+        - Set encoder weight = same direction scaled to 0.2x mean alive-encoder norm
+        - Reset Adam optimizer moments for the resampled rows/cols
         Returns number of features resampled.
         """
         dead_mask = self.inactive_batches >= self.resample_threshold
@@ -80,14 +82,47 @@ class TopKSAEv2(nn.Module):
         dead_indices = dead_indices[:n_resample]
 
         with torch.no_grad():
-            # Use random input samples as new feature directions
-            perm = torch.randperm(x_batch.shape[0], device=x_batch.device)[:n_resample]
-            new_dirs = F.normalize(x_batch[perm].float(), dim=1)  # (n_resample, input_dim)
+            # Reconstruction error per input sample (without mutating the inactivity counter)
+            h_pre = self.encode(x_batch)
+            h_gated = self.top_k_gate(h_pre)
+            x_hat = self.decode(h_gated)
+            err = ((x_batch - x_hat) ** 2).sum(dim=1)  # (batch,)
+            probs = (err ** 2)
+            probs = probs / (probs.sum() + 1e-8)
+            # Sample n_resample inputs weighted by error^2
+            chosen = torch.multinomial(probs, n_resample, replacement=True)
+            new_dirs = F.normalize(x_batch[chosen].float(), dim=1)  # (n_resample, input_dim)
 
+            # Mean norm of currently-alive encoder rows
+            alive_mask = self.inactive_batches < self.resample_threshold
+            if alive_mask.any():
+                alive_norm = self.encoder.weight.data[alive_mask].norm(dim=1).mean()
+            else:
+                alive_norm = torch.tensor(1.0, device=x_batch.device)
+
+            # Decoder column = the input direction (unit norm)
             self.decoder.weight.data[:, dead_indices] = new_dirs.T
-            self.encoder.weight.data[dead_indices] = new_dirs
+            # Encoder row = same direction, scaled down so it grows into use gradually
+            self.encoder.weight.data[dead_indices] = new_dirs * (0.2 * alive_norm)
             self.encoder.bias.data[dead_indices] = 0.0
             self.inactive_batches[dead_indices] = 0
+
+            # Reset Adam optimizer moments for resampled parameters
+            if optimizer is not None:
+                for group in optimizer.param_groups:
+                    for p in group["params"]:
+                        state = optimizer.state.get(p, None)
+                        if not state:
+                            continue
+                        if p is self.encoder.weight:
+                            state["exp_avg"][dead_indices] = 0.0
+                            state["exp_avg_sq"][dead_indices] = 0.0
+                        elif p is self.encoder.bias:
+                            state["exp_avg"][dead_indices] = 0.0
+                            state["exp_avg_sq"][dead_indices] = 0.0
+                        elif p is self.decoder.weight:
+                            state["exp_avg"][:, dead_indices] = 0.0
+                            state["exp_avg_sq"][:, dead_indices] = 0.0
 
         return n_dead
 

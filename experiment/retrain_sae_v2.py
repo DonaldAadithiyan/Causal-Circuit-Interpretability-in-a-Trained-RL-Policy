@@ -27,13 +27,13 @@ PLOT_DIR = os.path.join(BASE, "outputs/plots")
 
 # Hypers
 K = 32
-HIDDEN_FACTOR = 2   # 512 hidden units (2× input)
+HIDDEN_FACTOR = 1.5   # 384 hidden units (1.5× input) — sized to keep dead features < 200
 LR = 1e-4
 BATCH_SIZE = 256
 MAX_EPOCHS = 80
 PATIENCE = 8
-RESAMPLE_EVERY = 100   # resample dead features every N batches
-RESAMPLE_THRESHOLD = 500
+RESAMPLE_EVERY = 50    # resample dead features every N batches
+RESAMPLE_THRESHOLD = 150
 VAL_SPLIT = 0.1
 
 
@@ -83,18 +83,19 @@ def main():
         epoch_loss, n_batches = 0.0, 0
         batch_num = 0
 
+        epoch_resampled = 0
         for start in range(0, n_train, BATCH_SIZE):
             batch = train_acts[perm_e[start: start + BATCH_SIZE]].to(device)
             optimizer.zero_grad()
-            x_hat, h = sae(batch)
+            x_hat, _h = sae(batch)
             loss = sae.loss(batch, x_hat)
             loss.backward()
             optimizer.step()
             sae.normalize_decoder()
 
-            # Resample dead features periodically
-            if batch_num % RESAMPLE_EVERY == 0:
-                n_resampled = sae.resample_dead_features(batch)
+            # Resample dead features periodically (skip the last few epochs to let them settle)
+            if batch_num % RESAMPLE_EVERY == 0 and epoch <= MAX_EPOCHS - 10:
+                epoch_resampled += sae.resample_dead_features(batch, optimizer)
 
             epoch_loss += loss.item()
             n_batches += 1

@@ -135,7 +135,8 @@ def build_g_star_from_w(W: np.ndarray, sae: TopKSAEv2, model,
 
     # 32×32 G* submatrix weighted by mean activation
     G_star_32 = np.array([[W[top32[i], top32[j]] for j in range(32)] for i in range(32)])
-    G_star_32 = G_star_32 * mean_acts[[top32]][:, None]  # weight rows by source activation
+    mean_acts_top32 = np.array([mean_acts[f] for f in top32])  # (32,)
+    G_star_32 = G_star_32 * mean_acts_top32[:, None]  # weight rows by source activation
     np.fill_diagonal(G_star_32, 0.0)
 
     # I1: depth concentration
@@ -227,10 +228,10 @@ def main():
     val_idx = np.random.choice(n_acts, 200, replace=False)
     acts_norm = torch.from_numpy(((acts_mm[val_idx] - mean) / std).astype(np.float32)).to(device)
 
-    # Load feature labels and top32
-    with open(os.path.join(OUT_DIR, "feature_index.json")) as f:
+    # Load v2 feature labels and top32 (re-identified in SAEv2 index space)
+    with open(os.path.join(OUT_DIR, "feature_index_v2.json")) as f:
         feat_idx = json.load(f)
-    with open(os.path.join(OUT_DIR, "feature_labels.json")) as f:
+    with open(os.path.join(OUT_DIR, "feature_labels_v2.json")) as f:
         feat_labels = json.load(f)
     top32 = feat_idx["top50_feature_indices"][:32]
     goal_features = feat_idx["goal_features"]
@@ -293,5 +294,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import seaborn as sns
     main()

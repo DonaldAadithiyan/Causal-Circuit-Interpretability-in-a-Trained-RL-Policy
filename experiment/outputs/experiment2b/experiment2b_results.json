@@ -1,0 +1,94 @@
+[
+  {
+    "displacement": 1,
+    "mean_k_activation": 85.33333333333333,
+    "std_k_activation": 93.62810594165741,
+    "mean_k_graph": 85.33333333333333,
+    "std_k_graph": 93.62810594165741,
+    "n_k_act": 30,
+    "n_k_graph": 30,
+    "seed_results": {
+      "seed_0": {
+        "mean_k_act": 66.0,
+        "mean_k_graph": 66.0
+      },
+      "seed_42": {
+        "mean_k_act": 104.4,
+        "mean_k_graph": 104.4
+      },
+      "seed_123": {
+        "mean_k_act": 85.6,
+        "mean_k_graph": 85.6
+      }
+    }
+  },
+  {
+    "displacement": 2,
+    "mean_k_activation": 148.53333333333333,
+    "std_k_activation": 85.34781127181229,
+    "mean_k_graph": 148.53333333333333,
+    "std_k_graph": 85.34781127181229,
+    "n_k_act": 30,
+    "n_k_graph": 30,
+    "seed_results": {
+      "seed_0": {
+        "mean_k_act": 161.4,
+        "mean_k_graph": 161.4
+      },
+      "seed_42": {
+        "mean_k_act": 161.4,
+        "mean_k_graph": 161.4
+      },
+      "seed_123": {
+        "mean_k_act": 122.8,
+        "mean_k_graph": 122.8
+      }
+    }
+  },
+  {
+    "displacement": 3,
+    "mean_k_activation": 135.0,
+    "std_k_activation": 91.92388155425118,
+    "mean_k_graph": 135.0,
+    "std_k_graph": 91.92388155425118,
+    "n_k_act": 30,
+    "n_k_graph": 30,
+    "seed_results": {
+      "seed_0": {
+        "mean_k_act": 102.5,
+        "mean_k_graph": 102.5
+      },
+      "seed_42": {
+        "mean_k_act": 180.5,
+        "mean_k_graph": 180.5
+      },
+      "seed_123": {
+        "mean_k_act": 122.0,
+        "mean_k_graph": 122.0
+      }
+    }
+  },
+  {
+    "displacement": -1,
+    "mean_k_activation": 168.03333333333333,
+    "std_k_activation": 71.48122519623986,
+    "mean_k_graph": 168.03333333333333,
+    "std_k_graph": 71.48122519623986,
+    "n_k_act": 30,
+    "n_k_graph": 30,
+    "seed_results": {
+      "seed_0": {
+        "mean_k_act": 200.0,
+        "mean_k_graph": 200.0
+      },
+      "seed_42": {
+        "mean_k_act": 142.7,
+        "mean_k_graph": 142.7
+      },
+      "seed_123": {
+        "mean_k_act": 161.4,
+        "mean_k_graph": 161.4
+      }
+    }
+  }
+]

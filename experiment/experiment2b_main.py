@@ -190,22 +190,33 @@ def main():
     W = np.load(os.path.join(GRAPH_DIR, "W_interfeature.npy"))
     with open(os.path.join(GRAPH_DIR, "G_star_v2_metadata.json")) as f:
         metadata = json.load(f)
-    with open(os.path.join(OUT_DIR, "feature_index.json")) as f:
+    with open(os.path.join(OUT_DIR, "feature_index_v2.json")) as f:
         feat_idx = json.load(f)
-    with open(os.path.join(OUT_DIR, "misgeneralization_results.json")) as f:
-        mis = json.load(f)
 
     goal_features  = feat_idx["goal_features"]
     proxy_features = feat_idx["proxy_features"]
-    baseline_goal_sig  = mis["baseline_goal_signal"]
-    baseline_proxy_sig = mis["baseline_proxy_signal"]
 
     model = PPO.load(os.path.join(CKPT_DIR, "ppo_final.zip"), device=str(device))
     model.policy.eval()
 
+    # Compute training-distribution baseline signals in the SAEv2 feature space
+    # (the v1 misgeneralization baselines used the old SAE indices and don't apply)
+    log_entry("[EXP2b] Computing SAEv2 training-distribution baseline", "")
+    train_env = make_env_with_info(goal_fixed=True)
+    base_goal_vals, base_proxy_vals = [], []
+    for _ in range(20):
+        ep = run_episode(model, sae, train_env, mean, std, mean_t, std_t,
+                         W, metadata, goal_features, proxy_features, 0.1, 0.1)
+        if ep["goal_signal"]:  base_goal_vals.append(float(np.mean(ep["goal_signal"])))
+        if ep["proxy_signal"]: base_proxy_vals.append(float(np.mean(ep["proxy_signal"])))
+    train_env.close()
+    baseline_goal_sig  = float(np.mean(base_goal_vals))  if base_goal_vals  else 0.1
+    baseline_proxy_sig = float(np.mean(base_proxy_vals)) if base_proxy_vals else 0.1
+
     log_entry("[EXP2b] START — graded shift measurement with W-based G_live",
               f"- displacements: [1, 2, 3, -1(random)]\n"
               f"- 10 episodes × 3 seeds per level\n"
+              f"- baseline_goal_sig: {baseline_goal_sig:.4f}, baseline_proxy_sig: {baseline_proxy_sig:.4f}\n"
               f"- W shape: {W.shape}")
 
     # Run all displacement levels

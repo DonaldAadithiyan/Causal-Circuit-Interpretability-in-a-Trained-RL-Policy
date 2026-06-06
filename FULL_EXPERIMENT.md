@@ -158,32 +158,75 @@ just an "the object is missing from its usual spot" detector? Experiment 2 was b
 deployment, and test whether the graph-level signal (causal routing) leads the activation signal.
 
 ### Stage 1 — EAP failed
-The first proper attempt used Edge Attribution Patching (gradient × activation). Validated
-against ground-truth activation patching on 100 observations:
+
+**What "causal influence" means here, and the two ways to measure it.** We want, for each SAE
+feature, a number for *how much it controls the agent's action*. The **ground-truth** way is
+**activation patching**: zero the feature, run the result through the policy head, and measure how
+much the action distribution moved (a KL divergence). That is exact but **slow** — one forward pass
+per feature per observation (32 features × hundreds of observations = thousands of passes).
+
+**What EAP is.** **Edge Attribution Patching** is the standard *fast approximation* of activation
+patching used in mechanistic interpretability. Instead of actually ablating each feature, it
+estimates the effect with calculus: run **one** backward pass to get the gradient of the action
+output with respect to each feature, then approximate "the effect of removing feature *i*" as
+
+```
+EAP_i  ≈  | activation_i  ×  ∂(action output) / ∂(activation_i) |     (gradient × activation)
+```
+
+The intuition is a first-order Taylor estimate: a feature's importance ≈ how active it is × how
+sensitive the output is to it. One backward pass gives all features at once, so EAP is ~1000× cheaper
+than patching. It works well on transformers (where attention gradients are well-behaved).
+
+**Why it failed here.** We validated EAP against ground-truth activation patching on 100
+observations and got:
 
 > **EAP Pearson r = 0.146** — far below the 0.5 usability bar.
 
 *Proof:* [experiment/outputs/experiment2/experiment2_results.json](experiment/outputs/experiment2/experiment2_results.json)
-(`eap_pearson_r`). The gradient attenuates through the 4× over-complete SAE decoder; EAP is
-unreliable on this architecture. The k values it produced (k_graph = k_activation = 128.7) are
-therefore not trusted.
+(`eap_pearson_r`). The reason is architectural: the gradient has to travel **action head → SAE
+decoder (256 → 1024, a 4× over-complete expansion) → feature**, and that over-complete decoder
+**attenuates and smears the gradient** so badly that the first-order estimate barely tracks the true
+ablation effect. The k values EAP produced (k_graph = k_activation = 128.7) are therefore not trusted
+and not used for any conclusion. EAP was abandoned — but its failure was *diagnostic*: it told us the
+gradient path through this decoder is unreliable, which motivated the fix below.
 
 ### Stage 2 — The W-matrix fix
-We removed gradients entirely. Inter-feature causal influence is read directly from the SAE
-weight geometry, in a single matrix multiply:
+
+**What the W-matrix is.** EAP failed because the *gradient* path is unreliable. The W-matrix removes
+gradients entirely and reads causal influence straight from the **geometry of the SAE's own weights**.
+Recall how the SAE works:
+- the **encoder** turns the 256-dim representation into features: each feature *j* has an **encoder
+  row** `W_enc[j]` — the direction it *reads from* the representation (feature *j* fires when the
+  representation points along `W_enc[j]`);
+- the **decoder** turns features back into the representation: each feature *i* has a **decoder
+  column** `D[i]` — the direction it *writes into* the representation when it is active.
+
+So if feature *i* is active, it adds its decoder direction `D[i]` to the representation. How much does
+that push feature *j* toward firing? Exactly the overlap between what *i* writes and what *j* reads —
+the dot product of *i*'s decoder column with *j*'s encoder row. Stack that over all pairs and it is
+one matrix multiply:
 
 ```
-W = D^T · W_enc^T          # decoder^T @ encoder^T,  shape hidden × hidden
+W = D^T · W_enc^T          # decoder^T @ encoder^T,  shape  hidden × hidden
 W[i, j] = (decoder direction of i) · (encoder direction of j)
-        = how much feature i's presence pushes feature j toward activation
+        = how strongly feature i's presence pushes feature j toward activation
 ```
 
-Validated against activation patching:
+This is the **inter-feature causal graph**, computed **once**, with **no forward passes, no backward
+passes, no ablation** — pure linear algebra on the trained weights. A feature's live causal weight at
+any moment is then just `Σ_j |W[i, j]| · h_j` (its row, weighted by the current activations) — the
+gradient-free signal that powers the rest of the programme (and the I2/k results in §8).
+
+**Why it works where EAP didn't.** The decoder is used here only as a set of fixed *direction
+vectors*, not as a computational graph to differentiate through — so there is no gradient to
+attenuate. Validated against ground-truth activation patching:
 
 > **W-matrix Pearson r = 0.89** (vs EAP's 0.15).
 
-This is the central **methodological contribution**: for over-complete SAEs on CNN policies,
-read causal edges from weight geometry, not from gradients.
+This is the central **methodological contribution**: for over-complete SAEs feeding a CNN policy,
+read causal edges from **weight geometry, not from gradients**. (The same lesson reappears in §8:
+raw-KL/gradient signals are too noisy; the W-based signal gives clean early warning.)
 Code: [experiment/compute_w_matrix.py](experiment/compute_w_matrix.py).
 
 ### Stage 3 — Fix the SAE first (SAEv2)
@@ -429,6 +472,11 @@ causal importance of each active feature at a step is:
 ```
 c_live_i = Σ_j | W[i, j] | · h_j           # influence of feature i, weighted by current activations
 ```
+
+*(For the full plain-language explanation of activation patching, why the gradient-based **EAP**
+approximation failed here, and how the **W-matrix** is derived from the SAE's encoder/decoder
+geometry, see §4 Stages 1–2. In brief: c\* is the exact-but-slow ablation measure; c_live is the
+cheap, gradient-free W-based measure that replaced the failed EAP estimate.)*
 
 ### 7.2 The detection signal — V_total, k_activation, k_graph
 

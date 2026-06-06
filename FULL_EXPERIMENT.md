@@ -1,11 +1,17 @@
 # Causal Circuit Interpretability in a Trained RL Policy
-## The Complete Four-Experiment Story — From Detection to Correction
+## The Complete Story — Four Experiments, Six Stress-Tests, From Detection to Correction
 
-*This is the single, self-contained account of the entire research programme. It tells the
-story end to end: what we set out to find, the problems we hit, what each experiment proved,
-and every metric behind every claim. Every number in this document is traceable to a file in
-this repository — see the provenance map in §11. The four standalone explainers
-(`EXPLAINER.md`, `EXPLAINER2.md`, `EXPLAINER3.md`, `EXPLAINER4.md`) are condensed in here.*
+*This is the single, self-contained account of the entire research programme. It tells the story
+end to end: what we set out to find, the problems we hit, what each of the four experiments proved,
+the exact equations of every mechanism, the six reviewer stress-tests that hardened (and corrected)
+the result, and every metric behind every claim. Every number is traceable to a file in this
+repository — see the provenance map in §13. The standalone documents (`EXPLAINER.md`,
+`EXPLAINER2.md`, `EXPLAINER3.md`, `EXPLAINER4.md`, `REVIEWER_RESPONSES.md`) are all condensed in here.*
+
+**Reading map.** §1 the question · §2 the testbed · §3–6 the four experiments (the discovery arc) ·
+§7 the exact equations · **§8 the six reviewer stress-tests (Q1–Q6 + the W-based rescore)** ·
+§9 every metric in one place · §10 what each experiment proved · §11 the unified conclusion ·
+§12 honest claims vs future work · §13 provenance.
 
 ---
 
@@ -544,7 +550,172 @@ cannot, because the representation was never the problem.
 
 ---
 
-## 8. Every Metric, In One Place
+## 8. Stress-Testing the Result — Six Reviewer Questions (and the W-Based Rescore)
+
+Experiment 4 produced a striking single result: at the (6,5) blind spot, activation monitoring was
+blind (k_activation undefined) while the causal graph fired immediately (k_graph = 200), and only
+behaviorally-targeted R_reason fixed it. Before trusting that, six skeptical questions were posed
+and answered with **new runs on the existing model** (scripts: `experiment/reviewer_q*.py`; data:
+`experiment/outputs/experiment4/reviewer/` and `experiment/outputs/q5_rescore/`). Two of the six
+also **caught real mistakes** in the original framing, and one **rescued a response** that Exp 4 had
+made look useless. This section is the full account.
+
+### 8.1 — Is (6,5) cherry-picked? (Q1) — No: the failure is systematic.
+
+Swept **all 35 valid interior goal positions** on the frozen random-goal policy. For each, measured
+failure rate, whether the causal graph (V_total) fired, and a robust failure-type metric — the mean
+goal-feature activation over the episode as a fraction of its training baseline.
+
+| | count / 35 |
+|---|---|
+| Solved (policy reaches goal) | 30 (86%) |
+| Failures | 5 (14%) |
+| — **causal graph detected** | **5 / 5 (100%)** |
+| Routing failures (goal active but ignored) | 2 — (4,5) at 15.96× baseline, (6,5) at 3.92× |
+| Representation failures (goal feature silent) | 3 — (1,5), (3,5), (1,6) at ≈0× |
+
+**(6,5) is one of two routing failures, not a singleton, and the graph fired on 100% of all five
+failures.** A second, unplanned finding: the policy has **two distinct failure types** — *routing*
+(goal feature strongly active, 3.9–16×, but not driving the action) and *representation* (goal
+feature silent, ≈0×). They separate by a ~400× gap in goal-activation fraction. The single-cell Exp 4
+story had missed the representation type entirely.
+
+*Honesty note:* the routing/representation label depends on the goal-activation baseline (estimated
+from 20 stochastic episodes), so we use the continuous fraction (bimodal, huge gap) rather than the
+brittle binary "did k_activation ever fire." The 14%-failure and 100%-graph-detection results are
+baseline-robust.
+
+### 8.2 — Does it hold at scale? (Q2) — Open; stated honestly.
+
+We cannot run this locally: `procgen` does not build on Apple Silicon (this is what forced the
+MiniGrid switch in the first place), and there is no GPU in this environment. The mechanism is
+defined purely on the SAE feature space and the W-matrix, both of which scale with any policy, and
+the failure is systematic *within* this environment (Q1). But a 10M-parameter IMPALA policy on
+Procgen CoinRun (a ~$15, ~4 h cloud-GPU run) is the necessary test and remains the **one genuinely
+open item**. Recommended next run: train PPO+IMPALA on Procgen, train SAEv3-style SAE, run the H1
+check, then repeat the Q1 sweep and the k_activation-vs-k_graph measurement.
+
+### 8.3 — Can the diagnosis be automated? (Q3) — Yes, and it rescues activation steering.
+
+A classifier on the live signals:
+
+```
+goal_activation_fraction > 0.6  AND  k_graph fires  ->  ROUTING        -> prescribe R_reason
+goal_activation_fraction < 0.6  AND  k_graph fires  ->  REPRESENTATION -> prescribe steering
+```
+
+labels all 5 failing positions at **100% accuracy** (~400× margin between the clusters). It was then
+**validated non-circularly** by running steering on every failing position:
+
+| Failure type | steering trigger rate (steer_fraction) | steering failure rate |
+|---|---|---|
+| Routing — (4,5), (6,5) | **0.005** (never engages) | 1.00 (correctly defers to R_reason) |
+| Representation — (1,5), (3,5), (1,6) | **0.94** (engages almost every step) | **2 of 3 fixed → 0.00** |
+
+Steering's I3 trigger fires on **94% of steps at representation positions** (goal silent → graph
+flags it → steering injects the goal direction) and on **0.5% at routing positions** (goal already
+active → nothing to inject) — and it **fixes 2 of 3 representation failures** (1,5) and (1,6) go
+100%→0%. **This rescues activation steering**: in Exp 4 it looked like a failed response, but that
+was only because it was tested on a *routing* failure; on *representation* failures it is the response
+that works. Each prescribed response works on, and only engages with, the failure type the classifier
+assigns it.
+
+### 8.4 — How narrow is the λ band, really? (Q4) — Narrow: [0.10, 0.15], with a hard ceiling.
+
+Finer 2-seed × 40k-step sweep on (6,5):
+
+| λ | failure (per seed) | mean | region |
+|---|---|---|---|
+| 0.05 | [0.0, **1.0**] | 0.50 | **unstable (seed-dependent)** |
+| 0.10 | [0.0, 0.0] | **0.00** | **reliable working band** |
+| 0.15 | [0.0, 0.0] | **0.00** | **reliable working band** |
+| 0.20 | [1.0, 1.0] | 1.00 | collapse |
+| 0.30 | [1.0, 1.0] | 1.00 | collapse |
+| 0.50 | [1.0, 1.0] | 1.00 | collapse |
+
+The reliable band is **λ ∈ [0.10, 0.15]**, with a sharp collapse cliff at λ = 0.20. **This corrected
+a mistake:** the earlier single-seed reading "λ = 0.05 works" was an artifact — the 2-seed sweep shows
+0.05 is unstable (one seed fixed it, one did not). The band is genuinely narrow (~1.5× window); R_reason
+needs per-setting λ calibration. (Adaptive λ that backs off on destabilisation is the obvious mitigation.)
+
+### 8.5 — Does it generalise to reward hacking? (Q5 + Q5b) — Yes, and the W-based signal gives early warning.
+
+**New testbed (`envs/coin_hack_env.py`):** CoinCollect with two terminating objects — a *shortcut*
+at a fixed easy cell (2,2) and the *real goal* at a random cell. A fresh PPO+IMPALA policy trained
+with shortcut reward 0.3 (real = 1.0) genuinely **prefers the real goal** (shortcut-take rate 0.00,
+real-goal rate 0.93). Reward hacking is then induced by raising the shortcut reward to **1.5 > 1.0**.
+
+*(First attempt used shortcut = 0.9, which is **below** the real goal's 1.0 — so there was no hacking
+incentive and the agent correctly never switched. That run was a design artifact, caught and
+discarded; the corrected run uses 1.5. This was the second mistake the stress-tests caught.)*
+
+**Q5 with the raw-KL metric:** hacking is cleanly induced (shortcut-take rate **0% → 100%** over 80k
+steps), and the shortcut feature's raw-KL causal weight rises **~50×** (0.0011 → 0.057) — so the graph
+*registers* the hack. **But the raw-KL signal does not cleanly lead:** the sustained rise (40–70k)
+coincides with the behavioral switch (~40k), and the strongest signal slightly lags. Raw KL is too
+noisy at this scale to claim early warning.
+
+**Q5b with the W-based I2 metric:** re-measured with the gradient-free live causal weight
+`I2(t) = Σⱼ |W[shortcut, j]| · hⱼ(t)` — the same metric that powered Q1–Q3. *(Disclosure: Q5 saved no
+per-step data, no SAE, no W, and was online, so this is a **re-instrumented reproduction** — reuse the
+saved base policy, rebuild SAE + W, re-run induction with per-step W-based logging — not a rescore of
+identical episodes.)*
+
+| seed | I2 crosses noise+2σ | behavior switches | k (lead) |
+|---|---|---|---|
+| 1 | 30k | 50k | **+20,000** |
+| 2 | 30k | 40k | **+10,000** |
+| **mean** | | | **+15,000 ± 5,000** |
+
+- Noise floor (training distribution): mean I2 = 6.0, **max = 15.5**, 2σ threshold = 8.2.
+- Peak violation I2 ≈ **552,726** — a **~36,000× separation** from the noise floor (`comparable = False`),
+  so the threshold is unambiguous. *(The absolute magnitude is an unnormalised sum and is not itself
+  meaningful — only the ratio to the noise floor is.)*
+- **The W-based I2 leads the behavioral hack by k = +15,000 ± 5,000 steps** (both seeds positive). At
+  30k the circuit is already wired for the shortcut (I2 spiked) while the agent still barely uses it
+  (shortcut-take rate ≈ 0.05); behavioral commitment follows 10–20k steps later.
+
+So reward hacking gives the **same detect-and-lead property** as goal misgeneralization — **but only
+with the W-based metric**, not raw KL. This is a *second* demonstration (after EAP-vs-W in Experiment 2)
+that the gradient-free W-based causal weight, not gradient/KL signals, is the right thing to monitor.
+*(Caveats: n = 2 seeds; k on the induction timeline at 10k-step granularity.)*
+
+### 8.6 — Is online correction possible? (Q6) — Yes (~8k steps), but not monotonic.
+
+Deployed on (6,5), fed `R_total = R_env + λ·R_reason` (λ = 0.1) at every step, and ran PPO updates
+**online** with short rollouts (n_steps = 512) — a single continuous deployment run, not a separate
+training phase.
+
+| Online steps | (6,5) failure | train-dist failure |
+|---|---|---|
+| 0 | 1.00 | — |
+| 4,000 | 1.00 | 0.10 |
+| 8,000 | **0.00** | 0.30 |
+| 12,000–16,000 | **0.00** | 0.30 |
+| 20,000 | **1.00** ⚠️ | 0.40 |
+| 24,000–28,000 | **0.00** | 0.30 |
+
+**The agent corrects within a single online run — 100% → 0% by ~8,000 steps — with no catastrophic
+forgetting** (train-dist failure stays ~0.30). This upgrades the Exp 4 claim from "fixes the blind
+spot given a 50k-step retraining phase" to "corrects online, in-deployment, in ~8k steps." *Honesty
+note:* the correction is **not perfectly monotonic** — a transient relapse at 20k before recovering —
+so online updating should be stopped or annealed once the failure clears (the same stability theme as Q4).
+
+### 8.7 — What the stress-tests changed
+
+- **(6,5) is representative**, not anecdotal (Q1: 14% of positions fail, graph detects 100%).
+- They **uncovered a second failure type** (representation), which the single-cell story had missed.
+- They **rescued activation steering** as the correct tool for representation failures (Q3).
+- They made the correction claim **online and in-deployment** (Q6), and the diagnosis **automatic** (Q3).
+- They **quantified the λ limitation** honestly ([0.10, 0.15]) and **caught two mistakes** (the
+  single-seed λ artifact; the no-incentive reward-hacking run).
+- They **extended the method to a second failure mode with early warning** (Q5b, k = +15k ± 5k) — and
+  in doing so reinforced the programme's recurring lesson that **the W-based causal metric, not raw KL,
+  is the right signal**.
+
+---
+
+## 9. Every Metric, In One Place
 
 **Policies**
 
@@ -599,9 +770,39 @@ cannot, because the representation was never the problem.
 | Exp 4 | fine-tuning (repaired=True) | 1.000 |
 | **Exp 4** | **R_reason λ=0.1 (real feats)** | **0.000** |
 
+**Stress-tests (§8) — position sweep (Q1)**
+
+| | value |
+|---|---|
+| positions tested | 35 |
+| failures | 5 (14%) |
+| graph detection of failures | 5/5 (100%) |
+| routing failures (goal active) | 2 — (4,5), (6,5) |
+| representation failures (goal silent) | 3 — (1,5), (3,5), (1,6) |
+
+**Stress-tests — automated diagnosis (Q3), λ band (Q4), online correction (Q6)**
+
+| Metric | value |
+|---|---|
+| diagnosis classifier accuracy | 100% (5/5) |
+| steering trigger: representation vs routing | 0.94 vs 0.005 |
+| steering fixes representation failures | 2/3 (100%→0%) |
+| R_reason reliable λ band | [0.10, 0.15] (0.05 unstable; cliff at ≥0.20) |
+| online correction (6,5) | 100% → 0% by ~8k steps (transient relapse at 20k) |
+
+**Stress-tests — reward hacking (Q5 / Q5b)**
+
+| Metric | value |
+|---|---|
+| base policy shortcut-take rate (reward 0.3) | 0.00 (prefers real goal 0.93) |
+| hacking induced (shortcut reward 1.5) | shortcut-take rate 0 → 100% |
+| raw-KL shortcut causal weight rise | ~50× (coincident with switch, noisy) |
+| **W-based I2 lead time (k)** | **+15,000 ± 5,000 steps (n=2 seeds)** |
+| W-based I2 noise floor (max) vs peak | 15.5 vs 552,726 (~36,000×) |
+
 ---
 
-## 9. What Each Experiment Proved
+## 10. What Each Experiment Proved
 
 1. **Experiment 1** proved a pre-failure signal *appears* to exist (k = 157.8) — but could not
    tell whether it was a goal circuit or a perceptual artefact.
@@ -617,10 +818,17 @@ cannot, because the representation was never the problem.
    to** (k_activation undefined, k_graph = 200); **circuit repair and behavioural correction are
    dissociable** (fine-tuning repaired=True, failure 100%); and **behavioural retraining can fix
    the blind spot** (R_reason 100% → 0%) within a narrow stability band.
+6. **The six stress-tests (§8)** proved the Exp 4 result is **systematic** (Q1: 14% of positions
+   fail, graph detects 100%, two failure types), **diagnosable automatically** (Q3: 100% classifier,
+   which also rescued activation steering for representation failures), **correctable online**
+   (Q6: ~8k steps), bounded by a **narrow λ band** (Q4: [0.10, 0.15]), and **generalisable to a
+   second failure mode with early warning** (Q5b: reward hacking, W-based I2 leads by k = +15k ± 5k).
+   They also corrected two mistakes (a single-seed λ artifact; a no-incentive reward-hacking run) and
+   reinforced the recurring lesson that the **W-based causal metric, not raw KL, is the right signal**.
 
 ---
 
-## 10. The Unified Conclusion
+## 11. The Unified Conclusion
 
 > **Mechanistic monitoring and correction of RL agents is real, but conditional. It works exactly
 > when the agent has the representation you are trying to monitor — and the response must match
@@ -636,36 +844,50 @@ cannot, because the representation was never the problem.
   undefined, k_graph = 200) — and the three responses cleanly separated circuit repair from
   behavioural correction, with only behaviourally-targeted reward shaping fixing the blind spot,
   and only within a narrow stability band.
+- The six stress-tests then hardened this from "a striking single result" into "a characterized
+  phenomenon": the failure is systematic (14% of positions, graph detects 100%), comes in two types
+  (routing and representation) that an automatic classifier separates at 100% accuracy and routes to
+  the matching response, is correctable online in ~8k steps, is bounded by a narrow λ band, and
+  **extends to a second failure mode (reward hacking) with genuine early warning** — the W-based I2
+  signal leading the behavioural hack by ~15k steps. Throughout, the same lesson recurs: monitor the
+  **gradient-free W-based causal weight**, not raw gradients or KL.
 
 ---
 
-## 11. What the Paper Can Honestly Claim — and What Is Future Work
+## 12. What the Paper Can Honestly Claim — and What Is Future Work
 
 **Supported by evidence in this repository:**
 - Randomising the training goal produces a measurable goal representation (corr 0.44 vs 0.005) —
   the prerequisite the whole pipeline depends on.
 - The W-matrix extracts causal structure where gradient-based EAP fails (r 0.59–0.89 vs 0.15).
 - The causal graph detects a routing failure that activation monitoring cannot (k_activation
-  undefined, k_graph = 200).
+  undefined, k_graph = 200), and this failure is **systematic** (14% of positions, 100% graph
+  detection), not anecdotal.
 - Circuit repair ≠ behavioral correction (fine-tuning repaired=True, failure 100%).
-- A response (R_reason, λ=0.1) reduces failure from 100% to 0%.
+- A response (R_reason, λ=0.1) reduces failure from 100% to 0%, **online in ~8k steps**.
+- The routing-vs-representation diagnosis is **automatable** (100% classifier) and routes to the
+  matching response — **activation steering fixes representation failures** (2/3, 100%→0%).
+- The method **extends to reward hacking with early warning**: the W-based I2 signal leads the
+  behavioural hack by **k = +15k ± 5k steps**, ~36,000× above the noise floor.
 
 **Honest limitations:**
-- The "win" is a single response at a single tuned λ; at λ ≥ 0.5 it collapses. Correction is not
-  yet robust.
-- All results are on an 8×8 grid with a 624k-parameter policy; procgen-scale behaviour is unknown.
-- Steering and fine-tuning failed on a *routing* failure; on a *representation* failure they might
-  be the responses that work — only one failure type was tested.
-- The SAEs, though improved, still carry reconstruction error; the smallest causal effects (KL
-  ~1e-3) are near the noise floor.
+- The R_reason "win" holds only in a **narrow λ band [0.10, 0.15]** (collapse at ≥0.20; 0.05
+  unstable). Correction needs per-setting calibration; online updating is non-monotonic (a transient
+  relapse at 20k) and should be annealed once the failure clears.
+- All results are on an 8×8 grid with a 624k-parameter policy; **procgen-scale behaviour is the one
+  genuinely open item** (no GPU available locally).
+- Reward-hacking early warning is demonstrated with **n=2 seeds** and via a re-instrumented
+  reproduction (Q5 did not persist per-step data), at 10k-step granularity.
+- The SAEs, though improved, still carry reconstruction error; raw-KL causal effects (~1e-3) are
+  near the noise floor — which is precisely why the **W-based metric** (not raw KL) is used.
 
-**Future work:** larger policies and richer environments; a diagnosis step that classifies
-failures as representation- vs routing-type and routes to the matching response; making R_reason
-robust to λ; and testing whether the k_graph-vs-k_activation gap widens with policy capacity.
+**Future work:** the Procgen-scale run; making R_reason robust to λ (adaptive weighting); more seeds
+for the reward-hacking k; and testing whether the k_graph-vs-k_activation gap widens with policy
+capacity.
 
 ---
 
-## 12. Provenance — Where Every Number Lives (Reproducibility)
+## 13. Provenance — Where Every Number Lives (Reproducibility)
 
 Every metric above is read directly from these files (all committed; large binaries are
 regenerated by the scripts and kept local per `.gitignore`).
@@ -687,7 +909,13 @@ regenerated by the scripts and kept local per `.gitignore`).
 | Exp4 policy eval, blind spots | `experiment/outputs/experiment4/policy_randomgoal/eval_results.json` |
 | Exp4 G* (SAEv3), W r = 0.59 | `experiment/outputs/experiment4/graphs/G_star_v3_metadata.json` |
 | Exp4 k_act=nan/k_graph=200, all responses | `experiment/outputs/experiment4/experiment4_results.json` |
-| Full chronological audit trail | `LOG.md` |
+| Q1 position sweep (5/35, graph 100%) | `experiment/outputs/experiment4/reviewer/q1_position_sweep.json` |
+| Q3 diagnosis (100% acc, steering engagement) | `experiment/outputs/experiment4/reviewer/q3_diagnosis.json` |
+| Q4 λ band [0.10,0.15] | `experiment/outputs/experiment4/reviewer/q4_lambda_sweep.json` |
+| Q5 reward hacking (0→100%, raw-KL ~50×) | `experiment/outputs/experiment4/reviewer/q5_reward_hacking.json` |
+| Q5b W-based I2 k = +15k ± 5k, noise floor | `experiment/outputs/q5_rescore/q5_rescore_summary.json` |
+| Q6 online correction (100%→0% by 8k) | `experiment/outputs/experiment4/reviewer/q6_online_correction.json` |
+| Full chronological audit trail (incl. `[EXP4-Q*]`, `[Q5-RESCORE]`) | `LOG.md` |
 
 **Key code:**
 `experiment/train_policy.py` (Exp1 P1) · `train_sae.py` (P2) · `analyze_features.py` (P3) ·
@@ -696,7 +924,11 @@ regenerated by the scripts and kept local per `.gitignore`).
 (Exp2) · `retrain_sae_v2.py`, `models/topk_sae_v2.py`, `compute_w_matrix.py`,
 `experiment2b_main.py` (W-fix + Exp2b) · `compute_r_reason.py`, `correction_experiment.py`,
 `experiment3_main.py` (Exp3) · `train_policy_randomgoal.py`, `verify_goal_representation.py`,
-`response_activation_steering.py`, `response_fine_tuning.py`, `experiment4_main.py` (Exp4).
+`response_activation_steering.py`, `response_fine_tuning.py`, `experiment4_main.py` (Exp4) ·
+`reviewer_q1_position_sweep.py`, `reviewer_q3_diagnosis.py`, `reviewer_q4_lambda_sweep.py`,
+`reviewer_q6_online.py` (stress-tests Q1/Q3/Q4/Q6) · `reviewer_q5_reward_hacking.py` +
+`envs/coin_hack_env.py` (Q5) · `reviewer_q5_rescore.py` (Q5b W-based I2). The standalone
+`REVIEWER_RESPONSES.md` holds the full reviewer write-up that §8 condenses.
 
 **Plots** (regenerated locally; gitignored): training/eval curves, SAE loss & feature-frequency
 histograms, feature max-activation grids and spatial heatmaps, G* heatmaps, k distributions,

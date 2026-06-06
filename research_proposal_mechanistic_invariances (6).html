@@ -201,9 +201,9 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
       Circuit-Level<br><em>Detection, Correction</em><br>
       <span class="dim">and Repair of RL Failures</span>
     </h1>
-    <p class="header-sub">We cannot evaluate an RL agent's reasoning — only its actions. This research changes that: a three-layer system that extracts causal circuits from a trained policy, monitors them at deployment to produce behavioral correction before failure occurs, and repairs circuit drift durably — catching goal misgeneralization, reward hacking, and world model exploitation without retraining.</p>
+    <p class="header-sub">Activation monitoring is blind to goal-visible routing failures. The causal graph is not. We demonstrate this empirically — and show that fixing the circuit and fixing the behavior are different problems that require different tools.</p>
     <div class="header-thesis">
-      <strong>Core Claim:</strong> Multiple RL failure modes — goal misgeneralization, reward hacking, specification gaming, world model exploitation — share a common mechanistic root: the agent's internal reasoning becomes <strong>causally miscalibrated</strong>. We propose a <strong>three-layer system</strong> that (1) extracts causal circuit invariances offline via SAE and activation patching, (2) monitors them at deployment using EAP and emits R_reason to produce behavioral correction before failure occurs, and (3) uses violation records to guide targeted fine-tuning or activation steering for durable repair. Violations fire <strong>before behavioral degradation appears</strong>. Behavioral correction prevents failure <strong>without retraining</strong>. The full pipeline does not exist in any prior work.
+      <strong>Core Claim:</strong> RL goal misgeneralization can occur as a <strong>routing failure</strong> — the agent perceives the goal correctly but its decision circuit has stopped routing through that perception. Standard activation monitoring is blind to this. We show that a <strong>W-matrix causal graph</strong> (gradient-free, validated r = 0.89) detects routing failures that activation monitoring cannot (k_activation = undefined, k_graph = 200 at the blind spot), that <strong>circuit repair and behavioral correction dissociate</strong>, and that a routing-targeted reward signal (R_reason, λ = 0.1) corrects the failure where representation-targeted interventions cannot — online, in ~8k steps, without retraining. Empirically demonstrated across four experiments and six reviewer stress-tests on a 624k-parameter PPO policy.
     </div>
   </div>
 </header>
@@ -219,9 +219,8 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
     <a href="#idea">§07 Idea</a>
     <a href="#methodology">§08 Methodology</a>
     <a href="#result">§09 The Result</a>
-    <a href="#feasibility">§10 Feasibility</a>
-    <a href="#completesystem">§10b Complete System</a>
-    <a href="#nextlevel">§11 Next Level</a>
+    <a href="#completesystem">§10 Complete System</a>
+    <a href="#experiments">§11 Experiments</a>
   </div>
 </nav>
 
@@ -233,23 +232,18 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
   <h2 class="sec-title">The Problem</h2>
   <div class="two-col">
     <div>
-      <p>Model-Based Reinforcement Learning agents are evaluated entirely on what they do — actions taken, rewards received. No mechanism exists to evaluate <strong>how they think</strong> — the internal reasoning process that produced those actions.</p>
-      <p>An agent can learn to produce correct actions during training via <strong>spurious internal reasoning</strong> — routing through proxy features that co-occurred with reward rather than features that causally determine it. On the training distribution this is invisible. At deployment, when the environment shifts, the spurious reasoning collapses.</p>
-      <p>This single structural failure — <strong>causally miscalibrated reasoning</strong> — manifests as multiple distinct failure modes depending on how the spurious routing plays out. All of them are currently undetectable until after behavioral failure occurs.</p>
+      <p>RL agents are evaluated on <strong>what they do</strong> — never on <strong>how they reason</strong>. An agent can achieve high reward during training via spurious internal routing — correlations that happened to work on the training distribution but are not causally grounded in the task. At deployment, when the environment shifts, the routing collapses. <strong>No existing method detects this before it happens.</strong></p>
+      <p style="font-size:12.5px;color:var(--ink3);margin-top:12px">The behavioural framing of each failure mode is established in the literature — Langosco et al. (ICML 2022) for goal misgeneralization, Skalse et al. (NeurIPS 2022) for reward hacking, Hubinger et al. (2019) for internal goal divergence. The unifying mechanistic claim — that all four share a common root in causally miscalibrated internal routing — is the contribution of this research, operationalised and empirically tested here.</p>
     </div>
     <div>
       <div class="callout red">
         <div class="cl-label">The Silent Failure Chain — Shared Root</div>
         <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:8px">
-          <div style="padding:9px 13px;background:rgba(196,75,26,0.06);border-radius:4px;color:var(--ink2)">① Agent trains on world model — actions look correct on training distribution</div>
-          <div style="padding:9px 13px;background:rgba(196,75,26,0.10);border-radius:4px;color:var(--ink2)">② Internally routes through <strong style="color:var(--ink)">causally invalid pathways</strong> — spurious features, shortcuts, proxy correlations</div>
-          <div style="padding:9px 13px;background:rgba(196,75,26,0.16);border-radius:4px;color:var(--ink2)">③ Environment shifts at deployment — spurious reasoning collapses</div>
-          <div style="padding:9px 13px;background:var(--red);border-radius:4px;color:#fff;font-weight:700">④ Silent failure — no process-level signal fired before the cliff</div>
+          <div style="padding:9px 13px;background:rgba(196,75,26,0.06);border-radius:4px;color:var(--ink2)">① Agent trains on an environment — actions look correct, reward is high</div>
+          <div style="padding:9px 13px;background:rgba(196,75,26,0.10);border-radius:4px;color:var(--ink2)">② Internally routes through <strong style="color:var(--ink)">causally invalid pathways</strong> — proxy features, shortcuts, spurious correlations that co-occurred with reward during training</div>
+          <div style="padding:9px 13px;background:rgba(196,75,26,0.16);border-radius:4px;color:var(--ink2)">③ Environment shifts at deployment — the spurious routing no longer works, or the gap between reward proxy and true goal is exposed</div>
+          <div style="padding:9px 13px;background:var(--red);border-radius:4px;color:#fff;font-weight:700">④ Silent failure — no process-level signal fired before the cliff — <em>until now</em></div>
         </div>
-      </div>
-      <div class="callout" style="margin-top:16px;border-left-color:var(--blue)">
-        <div class="cl-label">The Core Gap</div>
-        <div style="font-size:13.5px;color:var(--ink2)">No existing method detects <strong>causal reasoning failure</strong> before it manifests behaviorally. There is no process-level signal — only outcome-level observation, too late to act on.</div>
       </div>
     </div>
   </div>
@@ -259,28 +253,32 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">The Four Failure Modes — One Mechanistic Root</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:0 6px 6px 0;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Failure Mode A</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Failure Mode A · Langosco et al. ICML 2022</div>
         <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px">Goal Misgeneralization</div>
-        <div style="font-size:12.5px;color:var(--ink2)">Capability generalizes, goal does not. Agent pursues proxy goal at deployment because it over-weighted proxy features during training. <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red)">Caught by I3 + I4</span></div>
+        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:6px">Capability generalises, goal does not. Agent learned to navigate to a proxy location, not to the goal itself. Behaves correctly during training. Fails silently when the goal moves.</div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red)">Caught by I3 + I4 · Empirically confirmed</span>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:0 6px 6px 0;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-bottom:8px">Failure Mode B</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-bottom:8px">Failure Mode B · Skalse et al. NeurIPS 2022</div>
         <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px">Reward Hacking</div>
-        <div style="font-size:12.5px;color:var(--ink2)">Agent finds a shortcut path through the world model that bypasses genuine causal reasoning — satisfying the reward signal via an invalid internal route. <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)">Caught by I1 + I2</span></div>
+        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:6px">Agent finds a shortcut to the reward signal that bypasses genuine task reasoning. Reward is high. The actual objective is not achieved. Can occur on the training distribution — no shift required.</div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--purple)">Caught by I1 + I2 · W-based I2 k=+15k confirmed</span>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:0 6px 6px 0;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Failure Mode C</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Failure Mode C · Hubinger et al. 2019</div>
         <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px">World Model Exploitation</div>
-        <div style="font-size:12.5px;color:var(--ink2)">Policy routes through hallucinated world model dynamics — features that activate in model rollouts but are causally invalid in the real environment. <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue)">Caught by I2 + I5</span></div>
+        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:6px">Model-based agent finds strategies that score highly in its internal world model but fail in the real environment. The model's approximation errors become exploitable gaps.</div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue)">Caught by I2 + I5 · Future work</span>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 6px 6px 0;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Failure Mode D</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Failure Mode D · Krakovna et al. 2020 (60+ instances)</div>
         <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:6px">Specification Gaming</div>
-        <div style="font-size:12.5px;color:var(--ink2)">Agent satisfies the literal reward signal via a causally wrong reasoning chain — correct output, wrong process, guaranteed to fail under any non-trivial distribution shift. <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">Caught by I1 + I2 + I5</span></div>
+        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:6px">Agent satisfies the literal reward specification through a causally wrong reasoning chain. Correct output, wrong process. Guaranteed to fail under any non-trivial distribution shift.</div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)">Caught by I1 + I2 + I5 · Future work</span>
       </div>
     </div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:14px 18px;margin-top:12px;font-size:13px;color:var(--ink2)">
-      All four share the same structural root — <strong>causally miscalibrated internal reasoning</strong>. Our method detects the root, not the symptoms. Goal misgeneralization is the primary empirical testbed because it is the cleanest controlled setting — not the only failure mode we address.
+      The behavioural existence of each failure mode is established in prior work. The unifying mechanistic claim — that all four share a common root in <strong>causally miscalibrated internal routing</strong>, detectable before behavioral failure — is the contribution of this research. Goal misgeneralization and reward hacking are empirically confirmed. World model exploitation and specification gaming are future work.
     </div>
   </div>
 </section>
@@ -292,20 +290,20 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
 
   <!-- PRIMARY -->
   <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--blue);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:16px">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:12px">Primary Setting</div>
-    <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink);margin-bottom:14px">PPO / SAC policy trained directly on observations — procedurally generated environments (Procgen, MiniGrid/BabyAI)</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:12px">Primary Setting — Empirically Validated</div>
+    <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--ink);margin-bottom:14px">PPO + IMPALA CNN trained directly on observations — MiniGrid CoinCollect (validated), Procgen CoinRun (planned)</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:20px">
       <div style="background:var(--blue-dim);border:1px solid rgba(61,45,181,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Why SAE Works Here</div>
-        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">A single deep policy network — IMPALA CNN or small transformer — processes raw pixels through multiple intermediate layers. Rich enough computation for SAE to extract meaningful monosemantic features and build a causal graph with genuine depth.</div>
+        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">IMPALA CNN processes raw pixels through multiple intermediate layers — rich enough for SAE to extract interpretable features and build a causal graph.</div>
       </div>
       <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Why Procgen / MiniGrid</div>
-        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">Procedurally generated — you control exactly which visual features co-occur with reward during training and which break at test time. Goal misgeneralization is already demonstrated here (Langosco et al. ICML 2022). Distribution shift is inducible at a known step.</div>
+        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">Procedurally generated — control which features co-occur with reward during training. Distribution shift inducible at a known step. Established goal misgeneralization testbed.</div>
       </div>
       <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">No Ambiguity</div>
-        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">One network to analyze. No world model / actor separation. The policy receives observations and outputs actions — the full causal reasoning chain is in a single inspectable forward pass. SAE, circuit analysis, and causal graph construction are applied to this one network.</div>
+        <div style="font-size:12.5px;color:var(--ink2);line-height:1.6">One network. Full causal reasoning chain in a single inspectable forward pass.</div>
       </div>
     </div>
   </div>
@@ -314,7 +312,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
   <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:0 4px 4px 0;padding:20px 24px">
     <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">Secondary Setting — Generality Demonstration</div>
     <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:8px">Actor-critic agent within MBRL — DreamerV3 on DMControl continuous control</div>
-    <div style="font-size:13px;color:var(--ink2);margin-bottom:12px">The actor network inside DreamerV3 receives the world model's latent state and outputs actions — this is the decision-making network we apply SAE and circuit analysis to. The world model introduces a second layer of spurious learning: the actor can route through world model hallucinations in addition to environment-level spurious correlations, making reasoning miscalibration more acute and the failure modes more compounded than in the primary setting.</div>
+    <div style="font-size:13px;color:var(--ink2);margin-bottom:12px">SAE + circuit analysis applied to the actor's forward pass. World model introduces a second spurious-learning layer. <strong>Prerequisite applies:</strong> actor must have a genuine goal representation. Not yet validated — future work.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div style="background:var(--gold-dim);border:1px solid rgba(139,106,0,0.2);border-radius:4px;padding:12px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:6px">SAE Target</div>
@@ -338,36 +336,36 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
       <div class="prior-family">A* Venue — ICML 2022</div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2105.14111" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Goal Misgeneralization in Deep RL</a></div>
       <div class="prior-works">Langosco, Koch, Sharkey, Pfau, Krueger</div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">First formal demonstrations. Agents trained to reach a coin navigated to its training-time position under shift — retaining capability but pursuing the wrong goal. Explicitly called detection an open problem.</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">First formal demonstrations. Explicitly called detection an open problem.</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--red-dim);color:var(--red);padding:6px 10px;border-radius:3px">The canonical reference · detection remains open</div>
     </div>
     <div class="prior-card" style="border-top:3px solid var(--purple)">
       <div class="prior-family">A* Venue — NeurIPS 2022</div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2209.13085" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Defining and Characterizing Reward Gaming</a></div>
       <div class="prior-works">Skalse, Howe, Krasheninnikov, Krueger</div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Proves reward gaming is structurally unavoidable under even slight reward misspecification. Krakovna et al. (DeepMind 2020) catalogued 60+ real instances in deployed RL systems.</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Reward gaming structurally unavoidable under reward misspecification. 60+ real instances catalogued.</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--purple-dim);color:var(--purple);padding:6px 10px;border-radius:3px">Not theoretical — occurs in production</div>
     </div>
     <div class="prior-card" style="border-top:3px solid var(--blue)">
       <div class="prior-family">A* Venue — ICLR 2025</div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2502.10097" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Causal Information Prioritization (CIP)</a></div>
       <div class="prior-works">Cao et al.</div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Demonstrates causal structure learning improves MBRL robustness across 39 tasks. Confirms the problem — but operates at training time only with no mechanistic detection of reasoning failures.</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Causal structure improves MBRL robustness. Training-time only — no deployment detection.</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--blue-dim);color:var(--blue);padding:6px 10px;border-radius:3px">Validates causal MBRL · no process-level detection</div>
     </div>
     <div class="prior-card" style="border-top:3px solid var(--green)">
       <div class="prior-family">Frontier Labs — Joint Paper 2025</div>
       <div class="prior-name"><a href="https://openai.com/index/chain-of-thought-monitorability/" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Chain of Thought Monitorability</a></div>
       <div class="prior-works">OpenAI · Anthropic · DeepMind · Meta</div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Joint warning: the window to monitor AI reasoning is brief and fragile. CoT is not a reliable proxy for internal computation. Mechanistic verification is necessary. Anthropic targets this as core safety goal.</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Monitoring window is brief and fragile. CoT not a reliable proxy. Mechanistic verification necessary.</div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--green-dim);color:var(--green);padding:6px 10px;border-radius:3px">Frontier labs treat this as critical and unsolved</div>
     </div>
   </div>
 
   <div class="callout gold">
-    <div class="cl-label">Validation From Adjacent Work — March 2026</div>
-    <div class="cl-title">Internal activation monitoring fires earlier than behavioral observation</div>
-    <p style="font-size:13.5px">A preprint showed SAE features on LLM residual stream activations detect reward-hacking behavior earlier than output-level evaluation — signals emerge in activations before they appear in generated text. This validates the general principle. <strong>The RL agent setting remains entirely untouched.</strong></p>
+    <div class="cl-label">Validation From Adjacent Work — And From Our Experiments</div>
+    <div class="cl-title">Causal circuits detect routing failures that activation monitoring cannot see</div>
+    <p style="font-size:13.5px">Our experiments: W-matrix causal graph detected a goal-visible routing failure (k_activation = nan, k_graph = 200) that activation monitoring was blind to. First empirical demonstration in a real RL agent.</p>
   </div>
 </section>
 
@@ -378,29 +376,29 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
 
   <div class="callout" style="border-left-color:var(--blue);margin-bottom:28px">
     <div class="cl-label">The Reframe</div>
-    <div style="font-size:14px;color:var(--ink2)">Prior safety methods ask: <strong style="color:var(--ink)">"did the agent do something bad?"</strong> — outcome-level, after the fact. This method asks: <strong style="color:var(--ink)">"is the agent currently reasoning in a way that will produce bad behavior?"</strong> — process-level, before the fact. That shift is the contribution. And because violations fire k steps before behavioral failure, there is a window to act on that signal — to correct behavior before it degrades.</div>
+    <div style="font-size:14px;color:var(--ink2)">Prior safety methods ask: <strong style="color:var(--ink)">"did the agent do something bad?"</strong> — outcome-level, after the fact. This method asks: <strong style="color:var(--ink)">"is the agent's causal routing intact?"</strong> — process-level, before the fact. Empirically: at the (6,5) blind spot the goal was visible the entire episode, the goal feature was active, yet activation monitoring reported nothing wrong. The causal graph fired at step 0. There is no behavioral signal to wait for — the routing failure is invisible to outcome-level monitoring.</div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:22px;border-top:2px solid var(--blue)">
       <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:10px">01 · Early Warning</div>
       <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--ink)">Before behavioral failure — across all four failure modes</div>
-      <div style="font-size:13px;color:var(--ink2)">Goal misgeneralization, reward hacking, world model exploitation, specification gaming — all produce causally miscalibrated reasoning before they produce wrong actions. A process-level signal detects the miscalibration, not the symptom.</div>
+      <div style="font-size:13px;color:var(--ink2)">All four failure modes produce circuit miscalibration before wrong actions. Detect the cause, not the symptom.</div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:22px;border-top:2px solid var(--red)">
       <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:10px">02 · Mechanistic Diagnosis</div>
       <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--ink)">Which failure mode, why, and where</div>
-      <div style="font-size:13px;color:var(--ink2)">I1 firing alone → shortcut bypass (reward hacking / specification gaming). I3+I4 firing → goal drift (misgeneralization). I2+I5 firing → invalid world model route. The invariance pattern identifies the failure mode, not just its existence.</div>
+      <div style="font-size:13px;color:var(--ink2)">I1 → shortcut. I3+I4 → goal drift. I2+I5 → world model. Pattern identifies the failure type automatically (Q3: 100% classifier accuracy).</div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:22px;border-top:2px solid var(--green)">
       <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:10px">03 · Behavioral Correction</div>
       <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--ink)">Prevents failure without retraining</div>
-      <div style="font-size:13px;color:var(--ink2)">R_reason fires k steps early and feeds back as a dense per-step signal. PPO updates the action distribution away from violation-triggering states — behaviorally correcting the agent before failure manifests. Not circuit repair: the agent averts failure by changing what it does, not by fixing its internal representations. That is enough, and it is currently unsolvable without our method.</div>
+      <div style="font-size:13px;color:var(--ink2)">R_reason fires k steps early and feeds back as a dense per-step signal. PPO updates the action distribution away from violation-triggering states. <strong>Empirically demonstrated:</strong> 100% → 0% failure at a routing blind spot, online in ~8k steps without retraining. Requires genuine goal representation (r &gt; 0.3) and λ in [0.10, 0.15].</div>
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:22px;border-top:2px solid var(--gold)">
       <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:10px">04 · Durable Repair</div>
       <div style="font-weight:700;font-size:14px;margin-bottom:10px;color:var(--ink)">Circuit-level fix between episodes</div>
-      <div style="font-size:13px;color:var(--ink2)">Violation records — which features drifted, how far, in which direction — guide targeted fine-tuning or activation steering between deployment episodes. The agent is repaired at the representation level so it no longer needs the behavioral safety net. Layer 2 is the bandage. Layer 3 is the cure.</div>
+      <div style="font-size:13px;color:var(--ink2)">Violation records guide targeted fine-tuning or activation steering. <strong>Key empirical finding:</strong> these are not interchangeable. Fine-tuning repaired circuit metrics (repaired=True) but left failure at 100% — because the problem was in routing, not representation. Activation steering fixes representation failures (2/3 cases, confirmed Q3). Circuit repair and behavioral correction dissociate.</div>
     </div>
   </div>
 </section>
@@ -417,7 +415,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-gap">Open Problem</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2105.14111" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Goal Misgeneralization in Deep RL — Langosco et al.</a></div>
-      <div class="prior-limit">Formalizes the problem. First empirical demonstrations. Does not propose a solution — explicitly calls detection an open problem. Our work begins where this one ends.</div>
+      <div class="prior-limit">Formalizes the problem. First empirical demonstrations. Does not propose a solution — explicitly calls detection an open problem. Gap: detection remains open.</div>
     </div>
 
     <div class="prior-card">
@@ -426,7 +424,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">Training-time Only</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2507.03068" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Mitigating Goal Misgeneralization via Minimax Regret</a></div>
-      <div class="prior-limit">Addresses goal misgeneralization through training-time environment diversity. No internal signals. No detection mechanism. Does not address deployed agents under shift.</div>
+      <div class="prior-limit">Training-time only. No internal signals. No deployment coverage.</div>
     </div>
 
     <div class="prior-card">
@@ -435,7 +433,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">Behavioral / Pre-deployment</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2203.11211" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">ReCCoVER — Detecting Causal Confusion for Explainable RL</a></div>
-      <div class="prior-limit">Detects spurious correlation reliance by running the agent in alternative environments and observing behavioral change. Never enters the model. Requires constructing alternative environments — impossible during deployment. A diagnostic, not a reward signal.</div>
+      <div class="prior-limit">Behavioral, never enters model. Requires alternative environments — impossible at deployment.</div>
     </div>
 
     <div class="prior-card">
@@ -444,7 +442,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">LLM Behavioral</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2401.07181" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">RL from LLM Feedback to Counteract Goal Misgeneralization</a></div>
-      <div class="prior-limit">Uses LLM behavioral feedback during training to identify failure scenarios. External, LLM-dependent, not mechanistic. Not applicable at deployment.</div>
+      <div class="prior-limit">LLM-dependent, training-time only, not mechanistic.</div>
     </div>
   </div>
 </section>
@@ -461,7 +459,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-blue">Validates Principle</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2603.04069" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Monitoring Emergent Reward Hacking via Internal Activations</a></div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">SAEs on LLM residual stream + linear classifiers → token-level reward-hacking detection. Reward-hacking signals emerge earlier in activations than in output. <strong>Validates that internal activations carry early safety-relevant signal.</strong></div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">SAE features on LLM activations detect reward-hacking before output. <strong>Validates internal activations carry early safety signal.</strong></div>
       <div class="prior-limit">LLM generating text, not RL agent. Scalar binary classifier, not causal graph. Monitor flag, not reward signal. No causal depth, no goal feature dependence, no self-consistency check.</div>
     </div>
 
@@ -471,8 +469,8 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-blue">Shared Ancestor</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2602.10067" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">RLFR — Features as Rewards</a></div>
-      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">Linear probes on LLM activations as RL training reward — reduces hallucination. Shares the intuition that internal features can be used as reward.</div>
-      <div class="prior-limit">LLM not RL agent. Scalar probe not causal graph. Training-time only — no deployment handling. No causal validation. No distribution shift consideration.</div>
+      <div style="font-size:13px;color:var(--ink2);margin-bottom:10px">LLM features as training reward. Shares the intuition.</div>
+      <div class="prior-limit">LLM not RL. Training-time only. No causal graph. No distribution shift.</div>
     </div>
 
     <div class="prior-card">
@@ -481,7 +479,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">Causal Credit Assignment</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2305.18427" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Interpretable Reward Redistribution in RL: A Causal Approach (GRD)</a></div>
-      <div class="prior-limit">Uses causal generative models for training-time credit assignment. Not runtime reasoning verification. Not deployment.</div>
+      <div class="prior-limit">Training-time credit assignment only. Not deployment.</div>
     </div>
 
     <div class="prior-card">
@@ -490,7 +488,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">Training-time Imitation</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/2311.01489" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">Invariant Causal Imitation Learning</a></div>
-      <div class="prior-limit">Learns invariant causal structure underlying expert behavior across training environments. Training-time imitation learning only. No runtime circuit analysis. No deployment reward signal.</div>
+      <div class="prior-limit">Training-time imitation only. No runtime circuit analysis.</div>
     </div>
 
     <div class="prior-card">
@@ -499,7 +497,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <span class="tag tag-adj">Philosophical Ancestor</span>
       </div>
       <div class="prior-name"><a href="https://arxiv.org/abs/1907.02893" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2);" target="_blank" rel="noopener">IRM — Invariant Risk Minimization</a></div>
-      <div class="prior-limit">Learns representations whose optimal classifier is stable across training environments in supervised learning. Not RL. Shapes what gets learned. Never reads internal circuits. No deployment component. Philosophical ancestor of the invariance idea — methodologically unrelated.</div>
+      <div class="prior-limit">Supervised learning, not RL. Philosophical ancestor only — methodologically unrelated.</div>
     </div>
   </div>
 </section>
@@ -509,49 +507,97 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
   <div class="sec-label">§ 07</div>
   <h2 class="sec-title">The Core Idea — A Three-Layer Safety System</h2>
 
+  <!-- CENTRAL INSIGHT -->
   <div class="callout" style="border-left-color:var(--red);background:linear-gradient(135deg,var(--red-glow),var(--surface));margin-bottom:32px">
-    <div class="cl-label">Core Insight</div>
-    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1.35">Goal misgeneralization, reward hacking, specification gaming, and world model exploitation all produce the same internal signature: causally miscalibrated reasoning. We detect the signature before behavioral failure, correct the agent's behaviour in real time, and repair the underlying circuit drift durably.</div>
+    <div class="cl-label">The Central Insight</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1.35">Every RL deployment failure — goal misgeneralization, reward hacking, world model exploitation, specification gaming — shares one root: the agent's <em>internal reasoning circuit</em> has become causally miscalibrated. We do not monitor what the agent does. We monitor how it reasons.</div>
+    <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:rgba(196,75,26,0.06);border-radius:4px;padding:12px 14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:6px">What existing methods do</div>
+        <div style="font-size:13px;color:var(--ink2)">Watch the reward curve. Wait for actions to go wrong. Detect failure <strong style="color:var(--ink)">after</strong> it has already happened.</div>
+      </div>
+      <div style="background:rgba(15,123,94,0.07);border-radius:4px;padding:12px 14px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:6px">What we do</div>
+        <div style="font-size:13px;color:var(--ink2)">Read the causal circuit inside the network. Detect when reasoning has broken — <strong style="color:var(--ink)">before</strong> wrong actions occur. Correct it.</div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--ink3);margin-top:12px;border-top:1px solid var(--border);padding-top:10px">Empirically confirmed on goal misgeneralization (routing failure): k_activation = nan — activation monitoring blind. k_graph = 200 — causal graph fires at step 0. Reward hacking: W-based I2 leads by +15k steps. Experiment 4, 3 seeds.</div>
   </div>
 
-  <div class="two-col">
-    <div>
-      <p>When an RL agent makes a decision, its internal forward pass traces a reasoning path — from input features through intermediate representations to the action output. That path has structure. It can be extracted, analyzed, and verified.</p>
-      <p>Certain causal properties of that reasoning path should remain <strong>invariant under distribution shift</strong> — not because we freeze the specific path, but because those properties reflect the causal structure of the MDP itself rather than surface correlations in training data.</p>
-      <p>This is not a goal misgeneralization detector. It is a <strong>causal reasoning integrity verifier</strong>. Goal misgeneralization is one failure mode that produces a reasoning integrity violation. Reward hacking, specification gaming, and world model exploitation are three others — all caught by the same five invariances, each with a distinct violation signature.</p>
+  <!-- WHAT WE ARE DOING -->
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">What We Are Doing — Three Steps</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:32px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:0 0 8px 8px;padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px">Step 1 — Extract</div>
+      <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:8px">Build the causal circuit</div>
+      <div style="font-size:13px;color:var(--ink2)">Train Top-K SAE on the frozen policy. Compute W = D<sup>T</sup> · W<sub>enc</sub><sup>T</sup> — inter-feature causal graph, validated r = 0.89. Extract five invariant profiles. Freeze as G*.</div>
     </div>
-    <div>
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:20px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px">What We Penalize vs. Allow</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--green);font-size:16px;flex-shrink:0">✓</span>
-            <span style="color:var(--ink2)">Agent adapts its reasoning path — new features become relevant</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--green);font-size:16px;flex-shrink:0">✓</span>
-            <span style="color:var(--ink2)">Valid training-time edges lose weight as environment changes</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span>
-            <span style="color:var(--ink2)">Known-spurious edges gain weight (reward hacking / spec gaming)</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span>
-            <span style="color:var(--ink2)">True goal features drop out of chain entirely (misgeneralization)</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span>
-            <span style="color:var(--ink2)">Reasoning becomes shallow — input→action direct (shortcut)</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;font-size:13px">
-            <span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span>
-            <span style="color:var(--ink2)">Graph is self-inconsistent — claimed cause does not drive action (world model exploitation)</span>
-          </div>
-        </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--green);border-radius:0 0 8px 8px;padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:10px">Step 2 — Monitor</div>
+      <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:8px">Compare G_live vs G* every step</div>
+      <div style="font-size:13px;color:var(--ink2)">At deployment, read G_live from the live forward pass. Check five invariances. If violated — emit R_reason as a dense per-step penalty before failure manifests.</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--red);border-radius:0 0 8px 8px;padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:10px">Step 3 — Repair</div>
+      <div style="font-weight:700;font-size:15px;color:var(--ink);margin-bottom:8px">Fix the circuit drift durably</div>
+      <div style="font-size:13px;color:var(--ink2)">Violation records diagnose which features drifted. Route to correct repair: R_reason for routing failures, steering for representation failures. Automated at 100% accuracy (Q3).</div>
+    </div>
+  </div>
+
+  <!-- THE GOALS -->
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">The Goals</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:32px">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--surface2);flex-shrink:0;line-height:1;margin-top:-4px">1</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">Detect routing failures before behavioral failure</div>
+        <div style="font-size:12.5px;color:var(--ink2)">Failures where the goal is visible but ignored — invisible to activation monitoring, detectable by causal graph. k_activation = nan, k_graph = 200.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--surface2);flex-shrink:0;line-height:1;margin-top:-4px">2</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">Correct the failure without retraining</div>
+        <div style="font-size:12.5px;color:var(--ink2)">R_reason fires k steps early. PPO corrects routing online. 100% → 0% failure at λ=0.1, ~8k steps. No retraining. No environment reset.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--surface2);flex-shrink:0;line-height:1;margin-top:-4px">3</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">Automate failure type diagnosis</div>
+        <div style="font-size:12.5px;color:var(--ink2)">Routing vs representation failure requires different responses. 100% classifier accuracy routing to the correct one (Q3). No human intervention needed.</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;display:flex;gap:14px;align-items:flex-start">
+      <div style="font-family:'Playfair Display',serif;font-size:32px;font-weight:900;color:var(--surface2);flex-shrink:0;line-height:1;margin-top:-4px">4</div>
+      <div>
+        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:4px">Generalise across failure modes</div>
+        <div style="font-size:12.5px;color:var(--ink2)">Goal misgeneralization confirmed (4 experiments). Reward hacking: W-based I2 leads by k = +15k steps. World model exploitation + specification gaming: future work.</div>
       </div>
     </div>
   </div>
+
+  <!-- ALLOW VS PENALISE -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:12px">What We Allow — Agent Can Adapt</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--green);font-size:16px;flex-shrink:0">✓</span><span style="color:var(--ink2)">New features become relevant as environment changes</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--green);font-size:16px;flex-shrink:0">✓</span><span style="color:var(--ink2)">Valid training-time edges lose weight — allowed</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--green);font-size:16px;flex-shrink:0">✓</span><span style="color:var(--ink2)">Reasoning depth changes across state types</span></div>
+      </div>
+    </div>
+    <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:12px">What We Penalise — Invariance Violations</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span><span style="color:var(--ink2)">Goal feature causal edge collapses — routing failure (I3)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span><span style="color:var(--ink2)">Spurious edges gain weight — reward hacking (I2)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span><span style="color:var(--ink2)">Claimed cause does not drive action under intervention (I5)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="color:var(--red);font-size:16px;flex-shrink:0">✗</span><span style="color:var(--ink2)">Reasoning chain collapses to depth-1 shortcut (I1)</span></div>
+      </div>
+    </div>
+  </div>
+
 </section>
 
 <!-- §08 METHODOLOGY -->
@@ -650,22 +696,22 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
     <div class="aug-steps">
       <div class="aug-step">
         <div class="aug-num an-blue">1</div>
-        <div class="aug-content ac-blue"><strong>Train PPO/SAC policy on Procgen or MiniGrid until convergence. Freeze all weights.</strong> Train Top-K SAEs on the frozen policy's activations across all layers using a large offline rollout corpus — extracting interpretable, monosemantic features at each layer.</div>
+        <div class="aug-content ac-blue"><strong>Train PPO on MiniGrid until convergence. Freeze all weights.</strong> Train Top-K SAE (K=32) on frozen activations — extracting monosemantic features.</div>
       </div>
       <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0"></div>
       <div class="aug-step">
         <div class="aug-num an-blue">2</div>
-        <div class="aug-content ac-blue"><strong>Apply full activation patching offline.</strong> For each feature pair (i, j) across layers, run counterfactual forward passes: zero out feature i, measure change in feature j. Edges surviving intervention are causally valid. Edges that fail are flagged spurious — stored in the spurious edge set S.</div>
+        <div class="aug-content ac-blue"><strong>Apply full activation patching offline.</strong> Zero out feature i, measure change in feature j. Valid edges survive — spurious edges flagged. Compute W = D^T · W_enc^T (validated r = 0.89 vs patching).</div>
       </div>
       <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0"></div>
       <div class="aug-step">
         <div class="aug-num an-red">3</div>
-        <div class="aug-content ac-red"><strong>Build G_t per decision.</strong> Nodes = active features per layer. Directed edges = causally validated influences. Weights = causal strength. Aggregate across training into reference statistics per cluster of state types.</div>
+        <div class="aug-content ac-red"><strong>Build G*.</strong> Nodes = SAE features. Edges = causally validated influences. Aggregate into reference invariant profiles.</div>
       </div>
       <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0"></div>
       <div class="aug-step">
         <div class="aug-num an-red">4</div>
-        <div class="aug-content ac-red"><strong>Extract the five causal invariant profiles</strong> from G* — causal depth baseline (I1), spurious edge set S (I2), goal feature set F_goal (I3), proxy feature weight ceilings (I4), and self-consistency baseline (I5). Freeze these as the reference. <strong>Validate EAP correlation against patching on a held-out rollout set (target r > 0.9)</strong> before deployment.</div>
+        <div class="aug-content ac-red"><strong>Extract five invariant profiles</strong> — I1 depth, I2 spurious edges, I3 goal features, I4 proxy ceilings, I5 self-consistency. Freeze as reference. Validate W-matrix vs patching (r = 0.89 confirmed).</div>
       </div>
     </div>
   </div>
@@ -816,7 +862,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:32px;margin-top:32px">
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Spotting Violations At Deployment — G_live vs G*</div>
     <div style="font-size:13px;color:var(--ink2);margin-bottom:28px">After distribution shift, the agent's live circuit diverges from the frozen reference. Each failure mode produces a distinct structural signature mapped to a specific invariance violation.</div>
-    <svg viewBox="0 0 860 840" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+    <svg viewBox="0 0 860 860" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
       <defs>
         <marker id="dv-a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#0F6E56"/></marker>
         <marker id="dv-b" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#C44B1A"/></marker>
@@ -825,44 +871,53 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <marker id="dv-e" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L0,7 L7,3.5 z" fill="#3D2DB5"/></marker>
       </defs>
 
-      <!-- PANEL 1: I3+I4 Goal Misgeneralization -->
-      <rect x="10" y="10" width="840" height="240" rx="8" fill="none" stroke="#D8DCE4" stroke-width="0.5"/>
+      <!-- PANEL 1: I3+I4 Goal Misgeneralization — ROUTING FAILURE (Exp 4 finding) -->
+      <rect x="10" y="10" width="840" height="260" rx="8" fill="none" stroke="#D8DCE4" stroke-width="0.5"/>
       <rect x="10" y="10" width="840" height="32" rx="8" fill="#E8ECF2" stroke="#D8DCE4" stroke-width="0.5"/>
       <rect x="10" y="30" width="840" height="12" fill="#E8ECF2"/>
-      <text x="26" y="30" font-family="Lato,sans-serif" font-size="13" font-weight="700" fill="#1A2033" dominant-baseline="central">I3 + I4 — Goal misgeneralization</text>
-      <rect x="688" y="16" width="150" height="20" rx="4" fill="#FAECE7" stroke="#C44B1A" stroke-width="0.5"/>
-      <text x="763" y="26" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#993C1D" dominant-baseline="central">I3 fires + I4 fires</text>
-      <line x1="434" y1="42" x2="434" y2="242" stroke="#D8DCE4" stroke-width="0.5" stroke-dasharray="4 3"/>
-      <text x="217" y="58" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#0F7B5E">G* — training reference (correct)</text>
-      <text x="644" y="58" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#C44B1A">G_live — after distribution shift (violated)</text>
+      <text x="26" y="30" font-family="Lato,sans-serif" font-size="13" font-weight="700" fill="#1A2033" dominant-baseline="central">I3 — Goal misgeneralization (routing failure)</text>
+      <rect x="630" y="16" width="208" height="20" rx="4" fill="#FAECE7" stroke="#C44B1A" stroke-width="0.5"/>
+      <text x="734" y="26" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#993C1D" dominant-baseline="central">k_activation = nan · k_graph = 200</text>
+      <line x1="434" y1="42" x2="434" y2="262" stroke="#D8DCE4" stroke-width="0.5" stroke-dasharray="4 3"/>
+      <text x="217" y="58" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#0F7B5E">G* — training reference (correct routing)</text>
+      <text x="644" y="58" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#C44B1A">G_live — goal visible, routing broken</text>
+
+      <!-- G* side: goal feat active, strong causal edge to action -->
       <rect x="36" y="72" width="116" height="42" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5"/>
       <text x="94" y="89" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#085041" dominant-baseline="central">goal feat</text>
-      <text x="94" y="106" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#0F6E56" dominant-baseline="central">w = 0.82</text>
-      <rect x="36" y="134" width="116" height="42" rx="6" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="0.5"/>
-      <text x="94" y="151" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#5F5E5A" dominant-baseline="central">proxy feat</text>
-      <text x="94" y="168" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#888780" dominant-baseline="central">w = 0.18</text>
-      <rect x="210" y="100" width="100" height="42" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5"/>
-      <text x="260" y="121" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#085041" dominant-baseline="central">action</text>
-      <line x1="152" y1="93" x2="210" y2="112" stroke="#0F6E56" stroke-width="3" marker-end="url(#dv-a)"/>
-      <text x="182" y="94" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#0F6E56">0.82</text>
-      <line x1="152" y1="155" x2="210" y2="130" stroke="#B8BFCC" stroke-width="0.8" marker-end="url(#dv-d)"/>
-      <text x="174" y="150" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#B8BFCC">0.18</text>
-      <rect x="36" y="196" width="272" height="22" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
-      <text x="172" y="207" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#085041" dominant-baseline="central">I3 check pass: goal present · I4 check pass: proxy below ceiling</text>
-      <rect x="460" y="72" width="130" height="42" rx="6" fill="#FAECE7" stroke="#C44B1A" stroke-width="1" stroke-dasharray="5 3"/>
-      <text x="525" y="89" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#993C1D" dominant-baseline="central">goal feat</text>
-      <text x="525" y="106" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#C44B1A" dominant-baseline="central">w to 0.04  dropped</text>
-      <rect x="460" y="134" width="130" height="42" rx="6" fill="#FAC775" stroke="#854F0B" stroke-width="2"/>
-      <text x="525" y="151" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#412402" dominant-baseline="central">proxy feat</text>
-      <text x="525" y="168" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#854F0B" dominant-baseline="central">w to 0.91  dominant</text>
+      <text x="94" y="106" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#0F6E56" dominant-baseline="central">active  w = 0.82</text>
+      <rect x="210" y="80" width="100" height="42" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5"/>
+      <text x="260" y="101" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#085041" dominant-baseline="central">action</text>
+      <!-- strong causal edge -->
+      <line x1="152" y1="93" x2="210" y2="101" stroke="#0F6E56" stroke-width="3" marker-end="url(#dv-a)"/>
+      <text x="182" y="84" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#0F6E56">edge = 0.82</text>
+      <!-- activation monitoring signal -->
+      <rect x="36" y="164" width="272" height="22" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+      <text x="172" y="175" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#085041" dominant-baseline="central">activation monitoring: goal active ✓ · causal edge: 0.82 ✓</text>
+      <rect x="36" y="194" width="272" height="22" rx="4" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+      <text x="172" y="205" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#085041" dominant-baseline="central">I3 pass · I4 pass · agent correctly uses goal representation</text>
+
+      <!-- G_live side: goal feat STILL active (same activation) but edge collapsed -->
+      <rect x="460" y="72" width="116" height="42" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="1.5"/>
+      <text x="518" y="89" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#085041" dominant-baseline="central">goal feat</text>
+      <text x="518" y="106" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#0F6E56" dominant-baseline="central">active  w = 0.80 ✓</text>
+      <!-- proxy feat routing instead -->
+      <rect x="460" y="134" width="116" height="42" rx="6" fill="#FAC775" stroke="#854F0B" stroke-width="2"/>
+      <text x="518" y="151" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#412402" dominant-baseline="central">proxy feat</text>
+      <text x="518" y="168" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="10" fill="#854F0B" dominant-baseline="central">now drives action</text>
       <rect x="650" y="100" width="100" height="42" rx="6" fill="#FAECE7" stroke="#C44B1A" stroke-width="1.5"/>
       <text x="700" y="121" text-anchor="middle" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#993C1D" dominant-baseline="central">action</text>
-      <line x1="590" y1="93" x2="650" y2="112" stroke="#D8DCE4" stroke-width="0.5" stroke-dasharray="3 3" marker-end="url(#dv-d)"/>
-      <text x="618" y="94" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#C44B1A">0.04</text>
-      <line x1="590" y1="155" x2="650" y2="130" stroke="#BA7517" stroke-width="4" marker-end="url(#dv-c)"/>
-      <text x="618" y="160" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#854F0B">0.91  DOMINANT</text>
-      <rect x="460" y="196" width="292" height="22" rx="4" fill="#FAECE7" stroke="#C44B1A" stroke-width="0.5"/>
-      <text x="606" y="207" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#993C1D" dominant-baseline="central">I3 fires: goal feature absent · I4 fires: proxy ceiling breached</text>
+      <!-- goal→action edge COLLAPSED -->
+      <line x1="576" y1="93" x2="650" y2="110" stroke="#D8DCE4" stroke-width="0.5" stroke-dasharray="3 3" marker-end="url(#dv-d)"/>
+      <text x="612" y="86" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#C44B1A">edge → 0.03 ✗</text>
+      <!-- proxy→action edge STRONG -->
+      <line x1="576" y1="155" x2="650" y2="128" stroke="#BA7517" stroke-width="4" marker-end="url(#dv-c)"/>
+      <text x="612" y="168" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#854F0B">edge = 0.88 ✗</text>
+      <!-- the key insight labels -->
+      <rect x="460" y="194" width="380" height="22" rx="4" fill="#FAECE7" stroke="#C44B1A" stroke-width="0.5"/>
+      <text x="650" y="205" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#993C1D" dominant-baseline="central">activation monitoring: goal STILL active → sees nothing wrong</text>
+      <rect x="460" y="222" width="380" height="22" rx="4" fill="#EDE8FB" stroke="#6B21A8" stroke-width="0.5"/>
+      <text x="650" y="233" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#6B21A8" dominant-baseline="central">causal graph: goal edge 0.82→0.03 → I3 fires · this is k_graph = 200</text>
 
       <!-- PANEL 2: I1+I2 Reward Hacking -->
       <rect x="10" y="270" width="840" height="250" rx="8" fill="none" stroke="#D8DCE4" stroke-width="0.5"/>
@@ -980,7 +1035,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
   </div>
   <!-- THE COMPLETE SYSTEM: THREE LAYERS -->
   <div id="completesystem" style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--blue);border-radius:0 0 8px 8px;padding:28px 32px;margin-top:32px">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--blue);margin-bottom:6px">The Complete System</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--blue);margin-bottom:6px">§ 08b · The Complete System</div>
     <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px;line-height:1.3">Three layers working together: extract offline, monitor live, repair durably</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
       <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px;border-top:3px solid var(--green)">
@@ -1009,7 +1064,7 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
         <div class="aug-steps">
           <div class="aug-step">
             <div class="aug-num an-blue">A</div>
-            <div class="aug-content ac-blue">Standard forward pass through frozen policy + frozen Top-K SAEs. Every decision produces the live feature activation vector.</div>
+            <div class="aug-content ac-blue">Forward pass → frozen SAE → live feature activation vector.</div>
           </div>
           <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0"></div>
           <div class="aug-step">
@@ -1042,7 +1097,32 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
           </div>
           <div style="font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.5">V<sub>drop</sub> catches goal feature collapse (I3+I4). V<sub>gain</sub> catches spurious edge re-entry (I2). I5 fires on self-inconsistency. λ(t) decays as agent proves stability.</div>
         </div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:18px">
+
+        <!-- VIOLATION SCORE -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:20px;margin-top:16px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px">The Violation Score — Comparing G_live Against G*</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Weight Collapse — I3 + I4</div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);line-height:1.8">
+                V<sub>drop</sub> = Σ max(0, w*<sub>ij</sub> − w<sup>live</sup><sub>ij</sub>)
+              </div>
+              <div style="font-size:11.5px;color:var(--ink3);margin-top:6px">Goal edge loses weight. Catches goal feature dropout and proxy dominance.</div>
+            </div>
+            <div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Edge Re-Entry — I2</div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink);line-height:1.8">
+                V<sub>gain</sub> = Σ max(0, w<sup>live</sup><sub>ij</sub> − w*<sub>ij</sub>)
+              </div>
+              <div style="font-size:11.5px;color:var(--ink3);margin-top:6px">Spurious edge gains weight. Catches reward hacking. W-based I2: k = +15k steps early warning confirmed.</div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border2);border-radius:4px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink);line-height:2">
+            V<sub>total</sub> = α · V<sub>drop</sub> + β · V<sub>gain</sub> + γ · 𝟙[I5 fires]<br>
+            <span style="font-size:11px;color:var(--ink3)">R<sub>reason</sub> = − V<sub>total</sub> · λ(t) &nbsp;·&nbsp; λ ∈ [0.10, 0.15] (empirically validated)</span>
+          </div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:18px;margin-top:16px">
           <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">What Violation Records Accumulate</div>
           <div style="display:flex;flex-direction:column;gap:8px;font-size:12.5px;color:var(--ink2)">
             <div style="display:flex;gap:10px"><span style="color:var(--red);flex-shrink:0">→</span> Which invariances fired at which steps</div>
@@ -1086,13 +1166,13 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
 
   <div class="callout gold" style="margin-bottom:28px">
     <div class="cl-label">What Reviewers Will Ask</div>
-    <div class="cl-title">The pipeline is novel. Does it detect early — and does R_reason actually prevent the failure?</div>
-    <p style="font-size:13.5px">Two empirical questions determine the paper's tier. First: do invariance violations fire <strong>before</strong> behavioral degradation — and across more than one failure mode? Second: does the resulting R_reason signal produce behavioral correction that prevents the failure within the k-step window? The first question gets you to Accept. Both together get you to Strong Accept.</p>
+    <div class="cl-title">The experiment answered both questions.</div>
+    <p style="font-size:13.5px">At the (6,5) routing failure: k_activation = undefined (activation monitoring completely blind), k_graph = 200 (causal graph fires at step 0). R_reason at λ = 0.1 reduced failure 100% → 0% online. Fine-tuning reported repaired = True but failure stayed 100%. These are the results. They are fully consistent with the proposal's predictions — in the specific regime the proposal was designed for.</p>
   </div>
 
   <!-- SIGNAL DIAGRAM -->
   <div class="signal-wrap">
-    <div class="signal-title">The Early Warning Experiment — Invariance Signal vs Behavioral Signal</div>
+    <div class="signal-title">The Early Warning Result — k_activation = nan · k_graph = 200 · At the (6,5) routing blind spot</div>
     <svg viewBox="0 0 800 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;margin-bottom:20px">
       <line x1="60" y1="160" x2="760" y2="160" stroke="#D8DCE4" stroke-width="1"/>
       <line x1="60" y1="20" x2="60" y2="160" stroke="#D8DCE4" stroke-width="1"/>
@@ -1116,341 +1196,201 @@ footer{background:var(--surface);border-top:1px solid var(--border);color:var(--
       <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Experiment A — Primary</div>
         <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:6px">Goal Misgeneralization</div>
-        <div style="font-size:12px;color:var(--ink2)">Langosco et al. coin task. Shift coin position at step N. Does I3+I4 violation precede reward drop? Cleanest controlled setting — primary testbed.</div>
+        <div style="font-size:12px;color:var(--ink2)">Shift goal at step N. Does I3+I4 fire before reward drops? <strong>Empirical k_graph = 200 at routing blind spot.</strong></div>
       </div>
       <div style="background:var(--purple-dim);border:1px solid rgba(107,33,168,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);margin-bottom:8px">Experiment B</div>
         <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:6px">Reward Hacking</div>
-        <div style="font-size:12px;color:var(--ink2)">Introduce exploitable world model region at step N. Does I1+I2 violation (shallow bypass, spurious edge gain) fire before the policy exploits the hallucination?</div>
+        <div style="font-size:12px;color:var(--ink2)">Introduce shortcut reward. Does I2 fire before exploitation? <strong>W-based I2: k = +15k early warning confirmed.</strong></div>
       </div>
       <div style="background:var(--blue-dim);border:1px solid rgba(61,45,181,0.2);border-radius:6px;padding:16px">
         <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Experiment C</div>
         <div style="font-weight:700;font-size:13px;color:var(--ink);margin-bottom:6px">World Model Exploitation</div>
-        <div style="font-size:12px;color:var(--ink2)">Corrupt specific world model transitions. Does I5 self-consistency violation fire before the policy routes through corrupted dynamics at the behavioral level?</div>
+        <div style="font-size:12px;color:var(--ink2)">Corrupt world model transitions. Does I5 self-consistency fire before routing fails? Future work.</div>
       </div>
     </div>
 
-    <div class="outcome-split">
-      <div class="outcome-card pos">
-        <div class="oc-label pos">k significant + behavioral correction works</div>
-        <div class="oc-title">Strong Accept</div>
-        <ul class="oc-list">
-          <li>Early detection across ≥2 failure modes</li>
-          <li>R_reason prevents failure within the k-step window</li>
-          <li>First deployment-time correction without retraining</li>
-          <li>Complete system: detect, correct behaviorally, repair durably</li>
-        </ul>
-      </div>
-      <div class="outcome-card neg">
-        <div class="oc-label neg">k significant, correction partial or absent</div>
-        <div class="oc-title">Accept — Detection Result Stands</div>
-        <ul class="oc-list">
-          <li>Early warning result is the primary contribution</li>
-          <li>Layer 3 (fine-tuning / steering) provides the repair path</li>
-          <li>Honest framing of what R_reason does and does not do</li>
-          <li>Motivates future work on activation steering correction</li>
-        </ul>
-      </div>
-    </div>
   </div>
 
   <div class="callout" style="border-left-color:var(--blue)">
-    <div class="cl-label">The Paper's Contribution Ladder</div>
-    <p style="font-size:14px;margin:0"><strong>Floor (Accept):</strong> Circuit violations predict failure k steps early, across multiple failure modes and seeds — a new mechanistic precursor to RL deployment failure. <strong>Ceiling (Strong Accept):</strong> R_reason behaviorally corrects the agent within the k-step window, preventing failure without retraining, plus violation records enable durable circuit-level repair via Layer 3. The full three-layer system, demonstrated end-to-end.</p>
+    <div class="cl-label">What Was Demonstrated</div>
+    <p style="font-size:14px;margin:0"><strong>Demonstrated:</strong> The causal graph detects routing failures activation monitoring cannot see (k_act=nan, k_graph=200). R_reason corrects routing failures online (100%→0%, ~8k steps). Diagnosis is automatable at 100% accuracy. Reward hacking detected with k=+15k early warning. <strong>One open item:</strong> Procgen-scale replication (Q2). All other reviewer questions are answered with evidence.</p>
   </div>
 </section>
 
-<!-- §10 FEASIBILITY STUDY -->
-<section id="feasibility">
-  <div class="sec-label">§ 10</div>
-  <h2 class="sec-title">Feasibility Study — Building The Causal Graph At Deployment</h2>
+<!-- §11 EXPERIMENTS -->
+<section id="experiments">
+  <div class="sec-label">§ 11</div>
+  <h2 class="sec-title">The Experiments — What We Built and What We Found</h2>
 
-  <p style="font-size:15px;color:var(--ink2);max-width:780px;margin-bottom:32px">The frozen trained model is straightforward — you build G* offline using full activation patching, with unlimited compute and no time pressure. The hard question is what happens when the model is live, inferencing at real-time, and you need a causal graph every single step.</p>
+  <p style="font-size:15px;color:var(--ink2);max-width:780px;margin-bottom:36px">Four experiments, six reviewer stress-tests, nine hours of wall-clock time on a MacBook Air with no GPU. Each experiment was forced by the result of the previous one. The story is not a confirmation — it is a discovery arc.</p>
 
-  <!-- THE CORE TENSION -->
-  <div class="callout red" style="margin-bottom:32px">
-    <div class="cl-label">The Core Tension</div>
-    <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1.35;margin-bottom:10px">Building a true causal graph requires counterfactual interventions — running multiple forward passes per step. That destroys your frame rate. So what do you do instead?</div>
-    <p style="font-size:13.5px;margin:0">Full activation patching at K=32 features across L layers means hundreds of forward passes per decision step. At 60fps that is thousands of forward passes per second. Completely infeasible. The question is which approximation is principled enough to be defensible and fast enough to be real.</p>
-  </div>
-
-  <!-- THREE APPROACHES -->
-  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">The Three Approaches — In Order Of Causal Validity</div>
-
-  <!-- APPROACH 1 -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;overflow:hidden">
-    <div style="display:grid;grid-template-columns:180px 1fr;min-height:100px">
-      <div style="background:var(--surface2);padding:22px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)">Approach 1</div>
-        <div style="font-weight:700;font-size:15px;color:var(--ink);line-height:1.3">Full Activation Patching</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--red-dim);color:var(--red);padding:4px 8px;border-radius:3px;width:fit-content">Deployment infeasible</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:3px;width:fit-content">Gold standard</div>
+  <!-- EXP 1 -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--blue);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:24px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:6px">Experiment 1</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px">Does a pre-failure signal exist in the agent's activations?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Setup</div>
+        <div style="font-size:13px;color:var(--ink2)">PPO + IMPALA CNN (624k params) trained 500k steps on fixed-goal CoinCollect (goal always at (6,4)). Top-K SAE (K=32, hidden 1024) trained on 100k frozen activations. Goal shifted at deployment.</div>
       </div>
-      <div style="padding:22px 24px">
-        <p style="font-size:13.5px;margin-bottom:12px">Zero out feature i, measure change in feature j. Repeat for every pair. True do-calculus — actual causal intervention, not an approximation. This is what gives you ground truth and is what you use to build G* at training time.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div style="background:var(--green-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Use for:</strong> Building G* offline. Every patching experiment you need, no time constraint, full causal validity.</div>
-          <div style="background:var(--red-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Why not at deployment:</strong> K×L forward passes per step. At 60fps this is thousands of forward passes per second. Completely infeasible.</div>
-        </div>
+      <div style="background:var(--blue-dim);border:1px solid rgba(61,45,181,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Experiment</div>
+        <div style="font-size:13px;color:var(--ink2)">Label SAE features. Measure when goal-tracking features deactivate vs when reward degrades. Compute k across 60 episodes, 3 seeds.</div>
+      </div>
+      <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Findings</div>
+        <div style="font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">k = 157.8 ± 80.3 steps.</strong> Goal features deactivated before reward degraded in all 60 episodes. 785/1024 SAE features dead. Causal graph KL max 0.0028 — noise floor only.</div>
+      </div>
+      <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Open Question</div>
+        <div style="font-size:13px;color:var(--ink2)">Are these genuine goal features, or position-proximity detectors? The causal graph was built from cosine similarity, not intervention. Is the k = 157 signal real or a perceptual artefact?</div>
       </div>
     </div>
   </div>
 
-  <!-- APPROACH 2 -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:0 0 8px 8px;margin-bottom:16px;overflow:hidden">
-    <div style="display:grid;grid-template-columns:180px 1fr;min-height:100px">
-      <div style="background:var(--surface2);padding:22px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)">Approach 2</div>
-        <div style="font-weight:700;font-size:15px;color:var(--ink);line-height:1.3">Edge Attribution Patching (EAP)</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--blue-dim);color:var(--blue);padding:4px 8px;border-radius:3px;width:fit-content">Recommended</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:3px;width:fit-content">Deployment feasible</div>
+  <!-- EXP 2 -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--red);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:24px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:6px">Experiment 2</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px">Does the causal graph work — and do the features actually track the goal?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Setup</div>
+        <div style="font-size:13px;color:var(--ink2)">Same frozen policy. Attempt EAP for graph edges. Retrain SAE with resampling (SAEv2: 384 hidden, 100/384 dead). Test graded shift (1–3 cell displacement). Introduce W = D^T · W_enc^T as EAP fix.</div>
       </div>
-      <div style="padding:22px 24px">
-        <p style="font-size:13.5px;margin-bottom:16px">First-order Taylor approximation of the patching result. One backward pass. The edge weight approximates what full patching would give you without running a single extra forward pass.</p>
-
-        <!-- FORMULA -->
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:16px 20px;margin-bottom:16px">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">The EAP Edge Weight Formula</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--ink);margin-bottom:8px">w<sub>ij</sub><sup>live</sup> = | f<sub>i</sub><sup>(L1)</sup> · ∂f<sub>j</sub><sup>(L2)</sup> / ∂f<sub>i</sub><sup>(L1)</sup> |</div>
-          <div style="font-size:12.5px;color:var(--ink2)">The instantaneous Jacobian multiplied by the feature activation. Computes how much feature i at layer L1 causally drives feature j at layer L2 at this exact forward pass.</div>
-        </div>
-
-        <!-- THE SPARSITY ARGUMENT -->
-        <div style="background:var(--blue-dim);border:1px solid rgba(61,45,181,0.2);border-radius:6px;padding:16px 20px;margin-bottom:16px">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">The Key Insight — Top-K Sparsity Makes This Blazingly Fast</div>
-          <div style="font-size:13px;color:var(--ink2);line-height:1.6">In a standard network, computing gradients between all neurons is an O(N²) problem. But Top-K SAEs force 99.9% of features to hard zero. Only K features are active per layer. You only need gradients across a <strong style="color:var(--ink)">K×K submatrix</strong> of active elements — for K=32 that is 1,024 elements versus potentially millions. One backward pass. Fractions of a millisecond.</div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div style="background:var(--green-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Theoretical grounding:</strong> EAP validated against activation patching in transformer circuits literature — Marks et al. 2023. Citable. Reviewers will recognise it.</div>
-          <div style="background:var(--gold-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Known weakness:</strong> First-order approximation diverges from true patching when the network is strongly nonlinear. Requires offline validation that EAP correlates with patching on your specific architecture (r > 0.9 target).</div>
-        </div>
+      <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Experiment</div>
+        <div style="font-size:13px;color:var(--ink2)">Validate EAP vs patching. Check actual-goal-tracking correlation of features. Compare k_graph vs k_activation on graded shift. Validate W-matrix against patching.</div>
       </div>
+      <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Findings</div>
+        <div style="font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">EAP r = 0.146 (failed). W-matrix r = 0.893 (passed).</strong> Max actual-goal-tracking correlation: <strong style="color:var(--ink)">r = 0.005</strong>. "Goal features" were position detectors. k_graph = k_activation at every displacement (Δ = 0).</div>
+      </div>
+      <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Open Question</div>
+        <div style="font-size:13px;color:var(--ink2)">The fixed-goal training never required a goal representation. What if goals are randomised during training? Does the pipeline work on a policy that genuinely has a goal feature?</div>
+      </div>
+    </div>
+    <div class="callout" style="border-left-color:var(--red);margin-top:16px">
+      <div class="cl-label">The Deep Finding</div>
+      <p style="font-size:13.5px;margin:0">A cleaner SAE revealed: the policy never learned where the goal is. It memorised a fixed location. This is <strong>Type B goal misgeneralization</strong> — no goal representation exists. There is nothing to monitor, graph, or correct.</p>
     </div>
   </div>
 
-  <!-- APPROACH 3 -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:32px;overflow:hidden">
-    <div style="display:grid;grid-template-columns:180px 1fr;min-height:100px">
-      <div style="background:var(--surface2);padding:22px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3)">Approach 3</div>
-        <div style="font-weight:700;font-size:15px;color:var(--ink);line-height:1.3">SCM Proxy Distillation</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--gold-dim);color:var(--gold);padding:4px 8px;border-radius:3px;width:fit-content">Future work</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--green-dim);color:var(--green);padding:4px 8px;border-radius:3px;width:fit-content">Fastest possible</div>
+  <!-- EXP 3 -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--purple);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:24px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--purple);margin-bottom:6px">Experiment 3</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px">Does R_reason correct the agent — even with confounded features?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--surface2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Setup</div>
+        <div style="font-size:13px;color:var(--ink2)">Same fixed-goal policy. Second PPO phase on test distribution. R_total = R_env + λ · R_reason. λ sweep {0.0, 0.1, 0.5, 1.0}, 3 seeds each.</div>
       </div>
-      <div style="padding:22px 24px">
-        <p style="font-size:13.5px;margin-bottom:12px">Train a small auxiliary network at training time to predict causal edge weights directly from the SAE feature activation vector. At deployment: one tiny forward pass through the proxy, no backward pass at all. No gradients, no Jacobians.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div style="background:var(--green-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Why interesting:</strong> Faster than EAP. If the mapping from active features to edge weights is learnable, you can distill the entire causal graph into a single forward pass through a tiny network.</div>
-          <div style="background:var(--red-dim);border-radius:4px;padding:10px 13px;font-size:12.5px;color:var(--ink2)"><strong style="color:var(--ink)">Why not yet:</strong> Unvalidated anywhere. The proxy may not generalize to unseen deployment states — exactly when you need it most. Worth a sentence in future work, not a core claim.</div>
-        </div>
+      <div style="background:var(--purple-dim);border:1px solid rgba(107,33,168,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--purple);margin-bottom:8px">Experiment</div>
+        <div style="font-size:13px;color:var(--ink2)">Compare failure rate of R_reason vs baseline (λ=0) across λ values and seeds. Validate R_reason noise floor on training distribution.</div>
       </div>
+      <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:8px">Findings</div>
+        <div style="font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">λ=0: 16.7% failure.</strong> <strong style="color:var(--ink)">All λ &gt; 0: 100% failure.</strong> R_reason penalised every step away from (6,4) — rewarding goal misgeneralization. Dense confounded reward destroyed policy at even λ=0.1.</div>
+      </div>
+      <div style="background:var(--gold-dim);border:1px solid rgba(139,106,0,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Open Question</div>
+        <div style="font-size:13px;color:var(--ink2)">The failure was confounded features, not the mechanism. Would R_reason work with genuine goal-tracking features? Only one experiment can answer this.</div>
+      </div>
+    </div>
+    <div class="callout gold" style="margin-top:16px">
+      <div class="cl-label">The Lesson</div>
+      <p style="font-size:13.5px;margin:0"><strong>Validate features before using them as a reward.</strong> Plain fine-tuning (λ=0) outperformed everything — because it let the policy build the goal representation it never had.</p>
     </div>
   </div>
 
-  <!-- THE VIOLATION SCORE -->
-  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">The Violation Score — Comparing G_live Against G*</div>
+  <!-- EXP 4 -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--green);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:32px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--green);margin-bottom:6px">Experiment 4 — The Capstone</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--ink);margin-bottom:20px">The full pipeline on a policy with a genuine goal representation</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:20px">
+      <div style="background:var(--surface2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Setup</div>
+        <div style="font-size:13px;color:var(--ink2)">One change only: goal_fixed=False. Goal randomised every episode. Same IMPALA CNN, SAEv3 (0/384 dead features), W-matrix validated (r=0.89), all five invariances, all three responses.</div>
+      </div>
+      <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Experiment</div>
+        <div style="font-size:13px;color:var(--ink2)">H1: does goal feature exist? k_graph vs k_activation at blind spot (6,5). Compare all three responses: R_reason, activation steering, targeted fine-tuning.</div>
+      </div>
+      <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Findings</div>
+        <div style="font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">H1 passed: r = 0.44</strong> (vs 0.005). <strong style="color:var(--ink)">k_activation = nan, k_graph = 200.</strong> R_reason: 0% failure. Steering: never triggered. Fine-tuning: repaired=True but 100% failure. Hierarchy inverted.</div>
+      </div>
+      <div style="background:var(--blue-dim);border:1px solid rgba(61,45,181,0.2);border-radius:6px;padding:16px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Open Questions → Stress-Tests</div>
+        <div style="font-size:13px;color:var(--ink2)">Cherry-picked? λ band? Automatable? Procgen scale? Other failure modes? Online correction? All six answered below.</div>
+      </div>
+    </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:28px 32px;margin-bottom:24px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-      <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">Weight Collapse — I3 + I4 Detection</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink);line-height:1.9;margin-bottom:10px">
-          V<sub>drop</sub> = Σ<sub>(i,j) ∈ G*</sub> max(0, w*<sub>ij</sub> − w<sup>live</sup><sub>ij</sub>)
-        </div>
-        <div style="font-size:12.5px;color:var(--ink2)">Fires when training-time causal edges lose weight. Catches goal feature dropout (I3) and spurious proxy dominance (I4).</div>
-      </div>
-      <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">Edge Re-Entry — I2 Detection</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--ink);line-height:1.9;margin-bottom:10px">
-          V<sub>gain</sub> = Σ<sub>(i,j) ∈ spurious</sub> max(0, w<sup>live</sup><sub>ij</sub> − w*<sub>ij</sub>)
-        </div>
-        <div style="font-size:12.5px;color:var(--ink2)">Fires when flagged-spurious edges gain weight at deployment. Catches reward hacking and shortcut bypass (I2). A term the original formulation was missing.</div>
-      </div>
+    <div style="background:linear-gradient(135deg,var(--blue-dim),var(--green-dim));border:1px solid var(--border2);border-radius:8px;padding:22px 26px;margin-bottom:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">The Central Discovery</div>
+      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1.4;margin-bottom:8px">Activation monitoring checks if the agent knows where the goal is. The causal graph checks if the agent is using that knowledge. Those are different questions — and they can have different answers.</div>
+      <div style="font-size:13px;color:var(--ink2)">k_activation = nan: goal feature active throughout, monitoring sees nothing. k_graph = 200: causal edge from feature to action broken at step 0. The agent perceived the goal and ignored it.</div>
     </div>
-    <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:18px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Combined Violation Score</div>
-      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--ink);line-height:2">
-        V<sub>total</sub> = α · V<sub>drop</sub> + β · V<sub>gain</sub> + γ · 𝟙[I5 fires]<br>
-        <span style="font-size:11px;color:var(--ink3)">R<sub>reason</sub> = − V<sub>total</sub> · λ(t)</span>
-      </div>
-    </div>
+
+    <table class="data-table">
+      <thead><tr><th>Response</th><th>Failure Rate</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Baseline</strong></td><td class="mono">100%</td><td style="font-size:12.5px">The (6,5) routing blind spot — unaddressed</td></tr>
+        <tr><td><strong>Activation Steering</strong></td><td class="mono" style="color:var(--red)">100%</td><td style="font-size:12.5px">Never triggered (steer_frac 0.01) — goal feature already active. Wrong tool for routing failure.</td></tr>
+        <tr><td><strong>Targeted Fine-Tuning</strong></td><td class="mono" style="color:var(--red)">100%</td><td style="font-size:12.5px">repaired=True but behavior unchanged. Circuit repair ≠ behavioral correction — dissociate cleanly.</td></tr>
+        <tr style="background:var(--green-dim)"><td><strong>R_reason (λ=0.1)</strong></td><td class="mono" style="color:var(--green)">0%</td><td style="font-size:12.5px">Updates routing weights directly. Online in ~8k steps (Q6). Works because it operates on actions, not circuit metrics.</td></tr>
+      </tbody>
+    </table>
   </div>
 
-  <!-- WHAT THE PAPER MUST CLAIM -->
-  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">What The Paper Must Claim — Training vs Deployment Split</div>
+  <!-- SIX STRESS TESTS -->
+  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">Six Reviewer Stress-Tests</div>
+  <table class="data-table" style="margin-bottom:32px">
+    <thead><tr><th>#</th><th>Question</th><th>Verdict</th><th>Key Evidence</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">Q1</td><td><strong>Cherry-picked?</strong></td><td><span class="tag tag-new">Systematic</span></td><td style="font-size:12.5px">5/35 positions fail. Graph detects 100%. Two types: 2 routing (graph unique) + 3 representation (both fire).</td></tr>
+      <tr><td class="mono">Q2</td><td><strong>Scale?</strong></td><td><span class="tag tag-adj">Open — honest</span></td><td style="font-size:12.5px">No local GPU. Procgen protocol costed. One genuine open item for main-track submission.</td></tr>
+      <tr><td class="mono">Q3</td><td><strong>Automatable diagnosis?</strong></td><td><span class="tag tag-new">Yes — 100% acc</span></td><td style="font-size:12.5px">Classifier routes routing → R_reason, representation → steering. Steering fixes 2/3 representation cases.</td></tr>
+      <tr><td class="mono">Q4</td><td><strong>λ band?</strong></td><td><span class="tag tag-adj">Narrow [0.10, 0.15]</span></td><td style="font-size:12.5px">Collapse at ≥0.20. λ=0.05 unstable (single-seed artefact). Needs per-setting calibration.</td></tr>
+      <tr><td class="mono">Q5</td><td><strong>Other failure modes?</strong></td><td><span class="tag tag-new">Yes — reward hacking</span></td><td style="font-size:12.5px">W-based I2 leads behavioral hack by k = +15k ± 5k steps. Signal-to-noise 36,000×. Raw KL was coincident.</td></tr>
+      <tr><td class="mono">Q6</td><td><strong>Online correction?</strong></td><td><span class="tag tag-new">Yes — ~8k steps</span></td><td style="font-size:12.5px">100% → 0% online, no forgetting. Transient relapse at 20k — anneal once failure clears.</td></tr>
+    </tbody>
+  </table>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
-    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--green);border-radius:0 0 8px 8px;padding:22px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:10px">Training Time — Offline, Expensive, High-Fidelity</div>
-      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ink2)">
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> Train policy to convergence, freeze weights</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> Train Top-K SAEs on frozen activations across all layers</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> Build G* using full activation patching across rollout corpus</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> Flag spurious edges, identify goal features, compute proxy ceilings</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> <strong style="color:var(--ink)">Validate EAP correlation with patching on held-out rollouts</strong></div>
-        <div style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">→</span> Freeze G* as the invariant reference profile</div>
+  <!-- CONCLUSION -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:0 8px 8px 0;padding:28px 32px;margin-bottom:24px">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:12px">Conclusion</div>
+    <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--ink);line-height:1.4;margin-bottom:16px">Mechanistic monitoring works — but only when the agent has the representation you are trying to monitor, and only when the response matches the failure type the graph diagnoses.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:13px;color:var(--ink2)">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">Proved</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> Randomised training goal builds genuine goal feature (r=0.44 vs 0.005)</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> W-matrix extracts causal structure where EAP fails (r=0.89 vs 0.15)</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> Causal graph detects routing failures activation monitoring cannot see</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> Circuit repair ≠ behavioral correction — dissociate cleanly at the blind spot</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> R_reason corrects routing failures online in ~8k steps without retraining</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> Diagnosis automatable at 100% accuracy — routes to correct response</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--green);flex-shrink:0">✓</span> Extends to reward hacking with k = +15k early warning (W-based I2)</div>
       </div>
-    </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:0 0 8px 8px;padding:22px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:10px">Deployment Time — Online, Fast, EAP-Based</div>
-      <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--ink2)">
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> Standard forward pass through frozen policy + frozen Top-K SAEs</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> Single backward pass over K active features → K×K Jacobian</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> Compute w<sup>live</sup><sub>ij</sub> = |f<sub>i</sub> · ∂f<sub>j</sub>/∂f<sub>i</sub>| for all active pairs</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> Check I1–I4 via matrix comparison against frozen G* — microseconds</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> If flagged: run I5 — one counterfactual forward pass, check action</div>
-        <div style="display:flex;gap:10px"><span style="color:var(--blue);flex-shrink:0">→</span> Emit R<sub>reason</sub> as dense per-step reward signal</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px">Honest Limitations</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--red);flex-shrink:0">—</span> λ band narrow [0.10, 0.15] — needs per-setting calibration</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--red);flex-shrink:0">—</span> All results on 624k-parameter 8×8 grid — Procgen scale untested (Q2 open)</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--red);flex-shrink:0">—</span> Reward hacking k at n=2 seeds, 10k-step granularity</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--red);flex-shrink:0">—</span> Raw KL near noise floor — W-metric required throughout</div>
+        <div style="display:flex;gap:8px"><span style="color:var(--red);flex-shrink:0">—</span> Online correction non-monotonic at 20k — anneal λ once failure clears</div>
       </div>
     </div>
   </div>
 
   <div class="callout gold">
-    <div class="cl-label">The Claim That Reviewers Will Respect</div>
-    <p style="font-size:13.5px;margin:0">G* is constructed offline using full activation patching — true causal intervention, computationally expensive, done once. G_live is constructed at deployment using EAP — a first-order approximation validated offline to correlate with patching at r > 0.9, requiring one backward pass over K active features per step. Top-K SAE sparsity reduces this to a K×K computation, making it feasible in real time. The expensive causal analysis done once at training time is sufficient to define cheap runtime checks that catch failures early.</p>
-  </div>
-
-  <!-- REWARD SIGNAL SECTION -->
-  <div style="margin-top:40px">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">Does R_reason Actually Correct The Agent?</div>
-
-    <div class="callout" style="border-left-color:var(--blue);margin-bottom:24px">
-      <div class="cl-label">The Honest Answer</div>
-      <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--ink);line-height:1.35;margin-bottom:10px">R_reason does not fix the causal circuit. It prevents the failure from occurring by changing the agent's behavior. That is enough — and it is the right goal.</div>
-      <p style="font-size:13.5px;margin:0">You do not care whether the internal circuit is beautiful. You care whether the agent stops failing. Goal misgeneralization means wrong actions at deployment. If R_reason prevents those wrong actions — the failure is averted. The circuit being miscalibrated is the diagnostic signal, not the failure criterion.</p>
-    </div>
-
-    <!-- HOW R_REASON FLOWS -->
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">The Gradient Path — What R_reason Actually Updates</div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px 28px;margin-bottom:24px">
-      <div style="display:flex;align-items:center;gap:0;flex-wrap:wrap;margin-bottom:16px">
-        <div style="background:var(--red-dim);border:1px solid rgba(196,75,26,0.2);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red)">R_reason fires</div>
-        <div style="padding:0 8px;color:var(--ink3);font-size:12px">→</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2)">PPO loss updates</div>
-        <div style="padding:0 8px;color:var(--ink3);font-size:12px">→</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2)">policy weights Δθ</div>
-        <div style="padding:0 8px;color:var(--ink3);font-size:12px">→</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2)">different actions</div>
-        <div style="padding:0 8px;color:var(--ink3);font-size:12px">→</div>
-        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink2)">different observations</div>
-        <div style="padding:0 8px;color:var(--ink3);font-size:12px">→</div>
-        <div style="background:var(--green-dim);border:1px solid rgba(15,123,94,0.2);border-radius:4px;padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green)">different circuit</div>
-      </div>
-      <p style="font-size:13px;color:var(--ink2);margin:0">The circuit is at the end of a long indirect chain. PPO updates the action distribution — it makes violation-triggering actions less probable. The agent avoids the states and actions that produce miscalibrated circuits. This is <strong>behavioral correction</strong>, not representation repair. Both are valuable. They are not the same thing.</p>
-    </div>
-
-    <!-- THREE OUTCOMES -->
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:12px">Three Possible Outcomes — All Publishable</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px">
-      <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--green);border-radius:0 0 6px 6px;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--green);margin-bottom:8px">Outcome A</div>
-        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:8px">Behavioral failure prevented</div>
-        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:10px">R_reason fires k steps early. The agent avoids violation-triggering actions. Goal misgeneralization does not manifest as wrong actions. Failure averted without retraining.</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--green-dim);color:var(--green);padding:6px 10px;border-radius:3px">Strong result — complete claim</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--gold);border-radius:0 0 6px 6px;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Outcome B</div>
-        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:8px">Failure delayed / attenuated</div>
-        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:10px">R_reason slows the trajectory toward failure. Behavioral degradation is attenuated — the agent fails less severely or later. Partial correction, still valuable.</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--gold-dim);color:var(--gold);padding:6px 10px;border-radius:3px">Meaningful result — partial claim</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--blue);border-radius:0 0 6px 6px;padding:18px">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);margin-bottom:8px">Outcome C</div>
-        <div style="font-weight:700;font-size:14px;color:var(--ink);margin-bottom:8px">Detection only — correction via Layer 3</div>
-        <div style="font-size:12.5px;color:var(--ink2);margin-bottom:10px">R_reason detects reliably but does not correct within the episode. Violation records guide targeted fine-tuning between episodes. Detection result stands. Layer 3 provides the repair.</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;background:var(--blue-dim);color:var(--blue);padding:6px 10px;border-radius:3px">Detection result — Layer 3 corrects</div>
-      </div>
-    </div>
-
-    <!-- WHY R_REASON STILL WORKS EVEN IF IT ONLY CORRECTS BEHAVIORALLY -->
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px 28px;margin-bottom:24px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px">Why Behavioral Correction Is The Right Goal</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div>
-          <div style="font-size:13.5px;color:var(--ink2);line-height:1.7">Goal misgeneralization is currently considered nearly impossible to correct at deployment without retraining. The standard view: if an agent has goal-misgeneralized, you must retrain it with more diverse data. You cannot fix it in deployment.</div>
-          <div style="font-size:13.5px;color:var(--ink2);line-height:1.7;margin-top:10px">If behavioral correction via R_reason prevents goal misgeneralization from manifesting as actual wrong actions — <strong style="color:var(--ink)">without retraining, without environment reset</strong> — that solves a problem that currently has no solution.</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div style="background:var(--green-dim);border-radius:4px;padding:12px 14px;font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">Process reward models</strong> (OpenAI PRMs) give per-step reward based on reasoning quality. R_reason is structurally identical — a mechanistically-grounded PRM derived from internal circuit analysis rather than external evaluation.</div>
-          <div style="background:var(--blue-dim);border-radius:4px;padding:12px 14px;font-size:13px;color:var(--ink2)"><strong style="color:var(--ink)">RL reshapes circuits</strong> — recent work shows online RL post-training increases activation intensity and diversity. The gradient path from R_reason to circuit structure exists and has empirical precedent.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- THE PAPER CLAIM -->
-    <div class="callout" style="border-left-color:var(--red);background:linear-gradient(135deg,var(--red-glow),var(--surface))">
-      <div class="cl-label">The Complete Contribution — Detection + Correction + Repair</div>
-      <div style="font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:var(--ink);line-height:1.4;margin-bottom:10px">Causal reasoning invariance violations fire k steps before behavioral failure (Layer 2 detection). The resulting reward signal produces behavioral correction that prevents failure from occurring (Layer 2 correction). Violation records guide targeted repair that fixes the underlying circuit drift (Layer 3). Together: the first complete deployment-time safety system for MBRL agents.</div>
-      <p style="font-size:13px;color:var(--ink2);margin:0">No prior work offers all three. The detection result alone is publishable. Detection plus behavioral correction is a strong Accept. Detection plus behavioral correction plus durable repair is the paper you are trying to write.</p>
-    </div>
+    <div class="cl-label">What Comes Next</div>
+    <p style="font-size:13.5px;margin:0"><strong>Q2 — Procgen replication:</strong> One cloud GPU run (~$15) closes the scale question. <strong>Q5b — 5 seeds:</strong> reward hacking k from n=2 → n=5 for a real standard deviation. <strong>Adaptive λ:</strong> automatic scheduling to widen the working band. <strong>World model exploitation and specification gaming:</strong> the two remaining failure modes from the proposal, now testable with the validated pipeline.</p>
   </div>
 
 </section>
-
-<!-- §11 NEXT LEVEL -->
-<section id="nextlevel">
-  <div class="sec-label">§ 11</div>
-  <h2 class="sec-title">Possible Ways To Take This Research To The Next Level</h2>
-
-  <p style="font-size:15px;color:var(--ink2);max-width:780px;margin-bottom:36px">A method paper gets accepted. A discovery paper gets a Strong Accept. The difference is not effort or completeness — it is whether your experiments reveal something the community did not know was true about RL agents. Below are the specific pivots that could take this from a solid contribution to an unforgettable one.</p>
-
-  <!-- THE CORE REFRAME -->
-  <div style="background:var(--surface);border:1px solid var(--border);border-top:4px solid var(--red);border-radius:0 0 8px 8px;padding:28px 32px;margin-bottom:28px">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--red);margin-bottom:14px">The Reframe That Changes Everything</div>
-    <div class="two-col">
-      <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Method Paper — Accept</div>
-        <div style="background:var(--surface2);border-radius:4px;padding:14px;font-size:13.5px;color:var(--ink2);line-height:1.6;border-left:2px solid var(--border2)">"Our method detects reasoning failures before behavioral ones. Here is the engineering pipeline."</div>
-        <div style="font-size:12px;color:var(--ink3);margin-top:8px">Reviewer response: <em>Interesting engineering pipeline. What does it discover about RL agents?</em></div>
-      </div>
-      <div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Discovery Paper — Strong Accept</div>
-        <div style="background:var(--blue-dim);border-radius:4px;padding:14px;font-size:13.5px;color:var(--ink2);line-height:1.6;border-left:2px solid var(--blue)">"Successful RL policies possess stable causal reasoning invariants — and violating those invariants is a necessary precursor to goal misgeneralization."</div>
-        <div style="font-size:12px;color:var(--ink3);margin-top:8px">Reviewer response: <em>We found a previously unknown mechanistic precursor to RL failure.</em></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- THREE DISCOVERY QUESTIONS -->
-  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink3);margin-bottom:16px">The Three Questions That Determine Whether You Have A Discovery</div>
-
-  <div style="display:flex;flex-direction:column;gap:0;margin-bottom:32px">
-
-    <div class="aug-step">
-      <div class="aug-num an-blue">Q1</div>
-      <div class="aug-content ac-blue">
-        <strong>Do causal reasoning invariants actually stabilize during training?</strong>
-        <div style="margin-top:8px;font-size:13px">Measure I1–I5 across the full training curve. Do they converge and stabilize as the agent learns a good policy? If yes — causal reasoning invariants are not something you impose on the agent, they are something the agent <em>develops</em>. That is a scientific finding about RL agents independent of any safety application. It changes how people think about what learning produces.
-        </div>
-      </div>
-    </div>
-    <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0 2px 22px"></div>
-
-    <div class="aug-step">
-      <div class="aug-num an-red">Q2</div>
-      <div class="aug-content ac-red">
-        <strong>Is the violation gap k large enough to matter?</strong>
-        <div style="margin-top:8px;font-size:13px">k = 5 steps is a marginal engineering result. k = 50+ steps is a phenomenon. k = 100+ steps means you have detected goal misgeneralization before any behavioral signal could possibly catch it — before the agent has even encountered a meaningful number of shifted states. Design the experiment to measure k precisely. The size of k <em>is</em> the empirical heart of the paper.
-        </div>
-      </div>
-    </div>
-    <div style="grid-column:1;justify-self:center;width:1px;height:14px;background:var(--border);margin:2px 0 2px 22px"></div>
-
-    <div class="aug-step">
-      <div class="aug-num an-green">Q3</div>
-      <div class="aug-content ac-green">
-        <strong>Does the phenomenon generalize — across environments and architectures?</strong>
-        <div style="margin-top:8px;font-size:13px">Same invariance stabilization in Procgen, MiniGrid, and DreamerV3 actor-critic. Same k-step gap across goal misgeneralization, reward hacking, and world model exploitation. Same signature across CNN and transformer policies. If yes — you have discovered a general property of trained RL agents, not an artifact of one environment or architecture.
-        </div>
-      </div>
-    </div>
-  </div>
-
-</section>
-
-
-
-<footer>
   Research Proposal · Circuit-Level Detection, Correction, and Repair of RL Deployment Failures · 2026
 </footer>
 

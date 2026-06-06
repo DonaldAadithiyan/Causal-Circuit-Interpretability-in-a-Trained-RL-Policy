@@ -1,0 +1,117 @@
+{
+  "method": "RE-INSTRUMENTED REPRODUCTION (Q5 saved no per-step data; not a rescore of identical episodes)",
+  "i2_definition": "I2(t) = sum_j |W[shortcut_feat, j]| * h_j(t)  (W = D^T W_enc^T; gradient-free live causal weight)",
+  "k_convention": "k = behavioral_switch_step - i2_cross_step  (k>0 = early warning, signal precedes switch)",
+  "shortcut_feature": 130,
+  "shortcut_feature_corr": 0.27346635068175607,
+  "noise_floor_mean": 6.021086806658084,
+  "noise_floor_std": 1.0919468435775603,
+  "noise_floor_max": 15.472968101501465,
+  "threshold_2sigma": 8.204980493813204,
+  "peak_violation_mean_i2": 552726.5167912081,
+  "noise_floor_comparable_to_signal": false,
+  "mean_k": 15000.0,
+  "std_k": 5000.0,
+  "n_seeds": 2,
+  "per_seed": {
+    "seed_1": {
+      "behavioral_switch": 50000,
+      "i2_cross": 30000,
+      "k": 20000,
+      "curve": [
+        {
+          "steps": 0,
+          "shortcut_rate": 0.0,
+          "mean_i2": 5.238060416041554,
+          "max_i2": 14.126195907592773
+        },
+        {
+          "steps": 10000,
+          "shortcut_rate": 0.0,
+          "mean_i2": 5.157496697419173,
+          "max_i2": 46.053489685058594
+        },
+        {
+          "steps": 20000,
+          "shortcut_rate": 0.0,
+          "mean_i2": 4.119496098835103,
+          "max_i2": 15.436800003051758
+        },
+        {
+          "steps": 30000,
+          "shortcut_rate": 0.05,
+          "mean_i2": 378445.1672068013,
+          "max_i2": 104947752.0
+        },
+        {
+          "steps": 40000,
+          "shortcut_rate": 0.05,
+          "mean_i2": 205463.4191758615,
+          "max_i2": 36979296.0
+        },
+        {
+          "steps": 50000,
+          "shortcut_rate": 0.7,
+          "mean_i2": 552726.5167912081,
+          "max_i2": 40446328.0
+        },
+        {
+          "steps": 60000,
+          "shortcut_rate": 0.85,
+          "mean_i2": 414140.15848943195,
+          "max_i2": 84949040.0
+        }
+      ]
+    },
+    "seed_2": {
+      "behavioral_switch": 40000,
+      "i2_cross": 30000,
+      "k": 10000,
+      "curve": [
+        {
+          "steps": 0,
+          "shortcut_rate": 0.0,
+          "mean_i2": 6.043477562429074,
+          "max_i2": 14.126195907592773
+        },
+        {
+          "steps": 10000,
+          "shortcut_rate": 0.0,
+          "mean_i2": 5.792423894262721,
+          "max_i2": 11.290892601013184
+        },
+        {
+          "steps": 20000,
+          "shortcut_rate": 0.0,
+          "mean_i2": 3.9305706885553175,
+          "max_i2": 10.39564323425293
+        },
+        {
+          "steps": 30000,
+          "shortcut_rate": 0.05,
+          "mean_i2": 26796.923975546895,
+          "max_i2": 6472111.0
+        },
+        {
+          "steps": 40000,
+          "shortcut_rate": 0.95,
+          "mean_i2": 4.385543692111969,
+          "max_i2": 14.633440017700195
+        },
+        {
+          "steps": 50000,
+          "shortcut_rate": 0.85,
+          "mean_i2": 6.9683027966963715,
+          "max_i2": 16.94301414489746
+        },
+        {
+          "steps": 60000,
+          "shortcut_rate": 1.0,
+          "mean_i2": 6.051248979568482,
+          "max_i2": 25.617136001586914
+        }
+      ]
+    }
+  },
+  "elapsed_min": 206.82689698139828
+}

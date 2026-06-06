@@ -245,6 +245,10 @@ experiment/outputs/experiment4/reviewer/*.png
 experiment/outputs/experiment4/**/*.zip
 experiment/outputs/experiment4/**/*.pt
 
+# Q5 W-based rescore — large binaries stay local, JSON summary tracked
+experiment/outputs/q5_rescore/*.pt
+experiment/outputs/q5_rescore/*.png
+
 # ── Experiment: important results (push these) ───────────────────────────────
 # These are small JSON files that record the actual findings.
 # Explicitly un-ignore them even if parent dirs were ignored above:

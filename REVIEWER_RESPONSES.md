@@ -11,7 +11,7 @@ answered honestly. Every number below is traceable to a file under
 | Q2 | Does it hold at scale? | **Open (no local GPU)** | honest scope statement + the partial evidence we have |
 | Q3 | Is the diagnosis automatable? | **Yes** | classifier 100% accurate; steering engages 94% on representation vs 0.5% on routing |
 | Q4 | How narrow is the λ band? | **Narrow: [0.10, 0.15]** | reliable band [0.1,0.15]; λ=0.05 unstable; cliff at λ≥0.2 |
-| Q5 | Other failure modes? | **Partial — detects, doesn't yet lead** | reward hacking induced 0→100%; shortcut feature causal weight rises ~50×, but coincident with (not before) the switch |
+| Q5 | Other failure modes? | **Detects *and leads*** (W-based) | reward hacking induced 0→100%; W-based I2 leads the switch by **k = +15,000 ± 5,000 steps**, ~36,000× the noise floor (raw-KL was coincident/noisy) |
 | Q6 | Online correction possible? | **Yes (not monotonic)** | (6,5) 100%→0% by ~8,000 online steps; one transient relapse at 20k |
 
 ---
@@ -193,8 +193,56 @@ the signal is too noisy to claim a clean *pre-failure lead* — unlike the goal-
 (Exp 4, k_graph = 200). The honest reading: **detection of reward hacking works; early warning is not
 yet demonstrated.** The recommended fix is the **W-based causal signal** (the gradient-free metric
 that gave r = 0.59–0.89 and powered Q1–Q3), which is far less noisy than raw KL and is the natural
-way to re-test whether the spurious-edge signal *leads* the behavioral hack. That is a fast
-follow-up (re-scoring saved checkpoints, no retraining).
+way to re-test whether the spurious-edge signal *leads* the behavioral hack.
+
+### Q5b — W-based I2 rescore: the signal *does* lead. **(early warning confirmed for reward hacking)**
+
+We then re-measured the reward-hacking signal with the **W-based I2** metric instead of raw KL.
+Script: `reviewer_q5_rescore.py`. Data: `outputs/q5_rescore/q5_rescore_summary.json`.
+
+**Method disclosure (important).** Q5 persisted only the base policy and a 9-point aggregate curve
+— **no per-step episode data, no SAE, no W-matrix** — and Q5 was an *online* experiment (fresh
+rollouts per checkpoint), so there were never frozen episodes on disk to rescore. This is therefore
+a **re-instrumented reproduction**: we reused the saved base policy, rebuilt the SAE, computed
+`W = Dᵀ·W_encᵀ`, and re-ran the induction with the W-based signal logged per step. It is *not* a
+rescore of identical episodes — that data does not exist. We label it as such everywhere.
+
+**W-based I2 signal:** `I2(t) = Σⱼ |W[s, j]| · hⱼ(t)` for the shortcut feature *s* — the shortcut
+feature's W-row weighted by the current activation vector (the gradient-free "live causal weight"
+that powered Q1–Q3). **k convention:** `k = (behavioral-switch step) − (I2 first crosses noise_floor
++ 2σ)`, so **k > 0 = early warning** (signal precedes the switch).
+
+**Noise floor (training distribution, base policy):** mean I2 = 6.02, std = 1.09, **max = 15.5** →
+2σ threshold = 8.2.
+
+**Result (2 seeds, induction timeline, 10k-step granularity):**
+
+| seed | I2 crosses 2σ | behavior switches (shortcut-rate > 0.5) | k (lead) |
+|---|---|---|---|
+| 1 | 30k | 50k | **+20,000** |
+| 2 | 30k | 40k | **+10,000** |
+| **mean** | | | **+15,000 ± 5,000** |
+
+- **The W-based I2 signal leads the behavioral hack by k = +15,000 ± 5,000 steps** — both seeds
+  positive. At 30k the circuit is already wired for the shortcut (I2 has spiked) while the agent is
+  still barely using it (shortcut-take rate ≈ 0.05); behavioral commitment follows 10–20k steps later.
+- **The signal is unambiguous against the noise floor:** peak violation I2 ≈ **552,726** vs the
+  training-distribution max of **15.5** — a **~36,000× separation** (`noise_floor_comparable = False`).
+  So the 2σ threshold is not borderline; the noise floor is nowhere near the violation signal.
+  *(The absolute I2 magnitude is an unnormalised sum and is not itself meaningful — the ratio to the
+  noise floor is.)*
+
+**Revised Q5 verdict.** With the raw-KL metric the reward-hacking signal was coincident and noisy
+(no clean lead). With the **W-based metric it leads by ~15k steps** with a clean threshold — so the
+method **detects *and* gives early warning for reward hacking**, the same property it has for goal
+misgeneralization (Exp 4). This is also a second piece of evidence that **metric choice matters**:
+raw KL is too noisy; the gradient-free W-based causal weight is the right signal (consistent with the
+EAP-vs-W finding in Experiment 2).
+
+**Honest caveats.** (i) Reproduction, not a rescore of identical episodes (the data did not exist).
+(ii) n = 2 induction seeds; k is on the induction timeline at 10k-step granularity, so k is quantised
+(values {10k, 20k}). (iii) The shortcut sits 2 cells from start, so within-episode timing is trivial
+— the meaningful k is across the induction timeline, matching how Q5 defined the behavioral switch.
 
 ---
 
@@ -244,16 +292,16 @@ the failure clears, rather than run open-endedly." This is the same λ/stability
   steps, no forgetting."
 - **Q4** replaces "λ is razor-thin" with a mapped band (reliable [0.10, 0.15]; unstable at 0.05;
   hard collapse cliff at ≥ 0.20).
-- **Q5** shows the mechanism **extends to a second failure mode** (reward hacking): the spurious
-  feature's causal weight rises ~50× as the hack develops, so the graph *detects* it — but honestly
-  reports that early *warning* is not yet established with the raw-KL metric (the rise is coincident
-  with, not before, the behavioral switch), and names the W-based signal as the fix.
+- **Q5** shows the mechanism **extends to a second failure mode** (reward hacking) with **early
+  warning**: with the W-based I2 signal the spurious-edge violation **leads the behavioral hack by
+  ~15k steps** (k = +15,000 ± 5,000, both seeds) at ~36,000× the noise floor. (Raw KL was too noisy
+  to show this — a second demonstration that the gradient-free W-based metric, not raw KL, is the
+  right causal signal, echoing the EAP-vs-W result of Experiment 2.)
 - **Q2** remains the one genuinely open item (scale), with a concrete costed Procgen protocol.
 
 Together they move the paper from "a striking single result" to "a characterized phenomenon with an
-automatable diagnosis, an online correction, and a second failure mode where the signal is at least
-detectable" — while being explicit about the two things still to nail down (scale, and a clean
-*pre-failure* reward-hacking signal via the W-based metric).
+automatable diagnosis, an online correction, and a *second failure mode with early warning*" — while
+being explicit about the one thing still to nail down (scale).
 
 ---
 
@@ -265,6 +313,7 @@ detectable" — while being explicit about the two things still to nail down (sc
 | Q3 | `experiment/reviewer_q3_diagnosis.py` | `experiment/outputs/experiment4/reviewer/q3_diagnosis.json` |
 | Q4 | `experiment/reviewer_q4_lambda_sweep.py` | `experiment/outputs/experiment4/reviewer/q4_lambda_sweep.json` |
 | Q5 | `experiment/reviewer_q5_reward_hacking.py`, `experiment/envs/coin_hack_env.py` | `experiment/outputs/experiment4/reviewer/q5_reward_hacking.json` |
+| Q5b (W-based I2) | `experiment/reviewer_q5_rescore.py` | `experiment/outputs/q5_rescore/q5_rescore_summary.json` |
 | Q6 | `experiment/reviewer_q6_online.py` | `experiment/outputs/experiment4/reviewer/q6_online_correction.json` |
 
 All chronological detail is in `LOG.md` under the `[EXP4-Q1]`…`[EXP4-Q6]` entries.

@@ -503,6 +503,31 @@ graph signal (watches causal *routing*). The whole programme turns on comparing 
 Experiment 4 at (6,5), the goal activation never drops, so **k_activation is undefined**, while
 V_total crosses at step 0, so **k_graph = 200**.
 
+**Is the training graph G\* assumed to be "perfect"? No — and it doesn't need to be.** The detection
+works by comparing the deployed graph G_live against the training-time reference G\*, which invites a
+fair objection: *what if G\* itself is wrong or noisy?* Three things make the method robust to an
+imperfect G\*:
+
+1. **G\* is a *reference for normal operation*, not a claim of correctness.** We never assert the
+   training circuit is "the right" circuit — only that it is *what the circuit looks like when the
+   agent behaves normally on the training distribution*. A violation is a **deviation from that
+   normal**, not a deviation from some ideal.
+2. **The threshold is set from G\*'s own noise, not from zero.** We deploy the policy on the training
+   distribution, measure the violation signal there, and record its **mean and standard deviation** —
+   the *noise floor*. A violation is only flagged when the live signal exceeds **baseline mean + 2σ**.
+   So if G\* is noisy/unreliable, that noise is *measured* and the threshold rises to match it
+   automatically. (Concretely in §8.5: training-distribution noise floor max = 15.5 → threshold 8.2;
+   the reward-hacking violation peaked at 552,726 — ~36,000× above the floor, so the imperfection of
+   G\* is irrelevant to that detection.)
+3. **The edges of G\* are separately validated.** The W-matrix that defines G\* was checked against
+   ground-truth activation patching at **r = 0.59–0.89** — that is the independent evidence that the
+   edges are real signal, not artefacts of a bad reference.
+
+In short: the method asks *"is the live circuit statistically different from normal, beyond normal's
+own noise?"* — not *"does the live circuit match a perfect template?"* An imperfect G\* shows up as a
+higher noise floor and a higher threshold, which the system accounts for by construction rather than
+trusting G\* blindly.
+
 ### 7.3 Response 1 — R_reason (reward shaping)
 
 **What it means:** turn the violation score into a per-step penalty and let PPO retrain the
@@ -645,28 +670,65 @@ check, then repeat the Q1 sweep and the k_activation-vs-k_graph measurement.
 
 ### 8.3 — Can the diagnosis be automated? (Q3) — Yes, and it rescues activation steering.
 
-A classifier on the live signals:
+**The problem this solves.** A complete safety system needs three steps: **(a) detect** a failure,
+**(b) diagnose** *what kind* it is, **(c) deploy the matching response**. Experiment 4 did (a) and (c)
+but did (c) **by hand** — we *knew* (6,5) was a routing failure, so we knew to use R_reason. Q3 asks
+whether (b), and therefore the choice in (c), can be made **automatically from signals alone**.
+
+**Why there is a choice to make.** Q1 showed the policy fails in two mechanically opposite ways:
+
+| Failure type | What is wrong | goal-feature activation | right response |
+|---|---|---|---|
+| **Routing** | goal feature is *active* (goal visible) but **not driving the action** | high (3.9–16×) | **R_reason** (retrain the action policy) |
+| **Representation** | the policy **does not encode the goal** at that location | ≈0 (silent) | **activation steering** (inject the goal direction) |
+
+In a routing failure the *representation is fine* and *action-selection* is broken → you must change
+behaviour (R_reason). In a representation failure the *representation itself is missing* → you must
+supply it (steering injects the goal feature's direction into the 256-dim vector). The two responses
+are **complementary, not competing** — each owns one failure type.
+
+**The classifier** reads two cheap live signals — the goal-feature activation fraction and whether the
+graph fired — and outputs both the diagnosis and the prescription:
 
 ```
-goal_activation_fraction > 0.6  AND  k_graph fires  ->  ROUTING        -> prescribe R_reason
-goal_activation_fraction < 0.6  AND  k_graph fires  ->  REPRESENTATION -> prescribe steering
+goal_activation_fraction > 0.6  AND  graph fires  ->  ROUTING        -> prescribe R_reason
+goal_activation_fraction < 0.6  AND  graph fires  ->  REPRESENTATION -> prescribe steering
 ```
 
-labels all 5 failing positions at **100% accuracy** (~400× margin between the clusters). It was then
-**validated non-circularly** by running steering on every failing position:
+It labels all 5 failing positions at **100% accuracy (5/5)**, and the two clusters sit either side of
+the 0.6 threshold with a **~400× gap** (routing 3.9–16 vs representation ≤0.01) — so the threshold is
+nowhere near borderline.
+
+**The non-circular validation (the crucial part).** A skeptic objects: *"You labelled the types by
+goal-activation fraction and the classifier reads goal-activation fraction — of course it scores
+100%; that's circular."* So we validated against a **different, independent signal**: we ran the
+steering response on every failing position and measured (i) how often steering's own trigger fires
+(`steer_fraction`) and (ii) whether steering reduces failure.
 
 | Failure type | steering trigger rate (steer_fraction) | steering failure rate |
 |---|---|---|
 | Routing — (4,5), (6,5) | **0.005** (never engages) | 1.00 (correctly defers to R_reason) |
 | Representation — (1,5), (3,5), (1,6) | **0.94** (engages almost every step) | **2 of 3 fixed → 0.00** |
 
-Steering's I3 trigger fires on **94% of steps at representation positions** (goal silent → graph
-flags it → steering injects the goal direction) and on **0.5% at routing positions** (goal already
-active → nothing to inject) — and it **fixes 2 of 3 representation failures** (1,5) and (1,6) go
-100%→0%. **This rescues activation steering**: in Exp 4 it looked like a failed response, but that
-was only because it was tested on a *routing* failure; on *representation* failures it is the response
-that works. Each prescribed response works on, and only engages with, the failure type the classifier
-assigns it.
+This is not circular because the classifier reads *goal-activation fraction* while the validation
+watches *whether the steering mechanism engages and works* — a separate measurement. Steering's trigger
+(I3: "goal causal weight dropped below 60% of its baseline") fires on **94% of steps exactly where the
+classifier says representation** (goal silent → there is a real deficit → steering injects the goal
+direction) and on only **0.5% where it says routing** (goal already active → nothing to inject). And
+steering *actually fixes* failures only on the representation type — (1,5) and (1,6) go **100% → 0%**.
+The diagnosis therefore maps to the *correct treatment*, not just to a self-consistent label.
+
+**What "rescues activation steering" means.** In Experiment 4, steering was tested on **only one
+failure** — (6,5), a routing failure — where it never engaged and failure stayed 100%, so the §6
+three-response comparison ranked it last (alongside fine-tuning) and made it look like a **broken,
+useless response**. Q3 shows that verdict was an artifact of testing it on the *wrong failure type*.
+On **representation** failures — the type Exp 4 never tested — steering is the response that *works*.
+So steering is not a failed tool but a **specialist** one, and the automated diagnosis is exactly what
+routes failures to it.
+
+**Net:** Q3 turns the pipeline from "a human knows which response to use" into "read two signals →
+auto-diagnose routing vs representation → auto-route to R_reason or steering," and in doing so reveals
+that all three responses have a place — they serve different failure types.
 
 ### 8.4 — How narrow is the λ band, really? (Q4) — Narrow: [0.10, 0.15], with a hard ceiling.
 

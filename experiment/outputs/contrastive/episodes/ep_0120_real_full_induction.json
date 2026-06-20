@@ -1,0 +1,18 @@
+{
+  "stage": "full_induction",
+  "outcome": "real",
+  "n_steps": 7,
+  "real_goal_pos": [
+    4,
+    4
+  ],
+  "shortcut_pos": [
+    2,
+    2
+  ],
+  "spatial_type": "near",
+  "dist_goal_to_shortcut": 2.8284271247461903,
+  "seed": 500,
+  "shortcut_reward": 1.5,
+  "global_episode_idx": 120
+}

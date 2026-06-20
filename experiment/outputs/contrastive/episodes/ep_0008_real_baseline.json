@@ -1,0 +1,18 @@
+{
+  "stage": "baseline",
+  "outcome": "real",
+  "n_steps": 6,
+  "real_goal_pos": [
+    5,
+    2
+  ],
+  "shortcut_pos": [
+    2,
+    2
+  ],
+  "spatial_type": "far",
+  "dist_goal_to_shortcut": 3.0,
+  "seed": 8,
+  "shortcut_reward": 0.3,
+  "global_episode_idx": 8
+}

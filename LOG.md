@@ -1,6 +1,407 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [18:38] [CONTRAST] COMPLETE
+- 160 episodes, 2,011 steps
+- induction: 50,000 steps, mid=True, full=True
+- top invariance: f121 d_clive=-0.01 (dropping)
+- elapsed 12.5 min
+
+## [18:38] [CONTRAST] Plots saved
+- /Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/contrastive/plots
+
+## [18:38] [CONTRAST] Within-stage done
+- mid_induction: 40 hack, 38 non-hack
+
+## [18:38] [CONTRAST] Contrastive analysis
+- hacking episodes: 78, non-hacking: 76
+
+## [18:38] [CONTRAST] Running contrastive analysis
+
+
+## [18:38] [CONTRAST] full_induction collected
+- shortcut=38 real=1 timeout=1
+
+## [18:38] [CONTRAST] full_induction ep 40/40
+- shortcut=38 real=1 timeout=1
+
+## [18:38] [CONTRAST] full_induction ep 30/40
+- shortcut=28 real=1 timeout=1
+
+## [18:38] [CONTRAST] full_induction ep 20/40
+- shortcut=18 real=1 timeout=1
+
+## [18:38] [CONTRAST] full_induction ep 10/40
+- shortcut=9 real=1 timeout=0
+
+## [18:38] [CONTRAST] ── Stage: full_induction (hack_rate=0.80) ──
+
+
+## [18:38] [CONTRAST] Probe @ 50,000 steps
+- hack_rate=0.80  (mid_done=True full_done=False)
+
+## [18:38] [CONTRAST] probe ep 20/20
+- shortcut=16 real=1 timeout=3
+
+## [18:38] [CONTRAST] probe ep 10/20
+- shortcut=9 real=0 timeout=1
+
+## [18:35] [CONTRAST] mid_induction collected
+- shortcut=40 real=38 timeout=2
+
+## [18:35] [CONTRAST] mid_induction ep 80/80
+- shortcut=40 real=38 timeout=2
+
+## [18:35] [CONTRAST] mid_induction ep 70/80
+- shortcut=37 real=32 timeout=1
+
+## [18:35] [CONTRAST] mid_induction ep 60/80
+- shortcut=31 real=29 timeout=0
+
+## [18:35] [CONTRAST] mid_induction ep 50/80
+- shortcut=23 real=27 timeout=0
+
+## [18:35] [CONTRAST] mid_induction ep 40/80
+- shortcut=19 real=21 timeout=0
+
+## [18:35] [CONTRAST] mid_induction ep 30/80
+- shortcut=13 real=17 timeout=0
+
+## [18:35] [CONTRAST] mid_induction ep 20/80
+- shortcut=10 real=10 timeout=0
+
+## [18:35] [CONTRAST] mid_induction ep 10/80
+- shortcut=5 real=5 timeout=0
+
+## [18:35] [CONTRAST] ── Stage: mid_induction (hack_rate=0.50) ──
+
+
+## [18:35] [CONTRAST] Probe @ 40,000 steps
+- hack_rate=0.50  (mid_done=False full_done=False)
+
+## [18:35] [CONTRAST] probe ep 20/20
+- shortcut=10 real=9 timeout=1
+
+## [18:35] [CONTRAST] probe ep 10/20
+- shortcut=7 real=2 timeout=1
+
+## [18:33] [CONTRAST] Probe @ 30,000 steps
+- hack_rate=0.15  (mid_done=False full_done=False)
+
+## [18:33] [CONTRAST] probe ep 20/20
+- shortcut=3 real=14 timeout=3
+
+## [18:33] [CONTRAST] probe ep 10/20
+- shortcut=2 real=5 timeout=3
+
+## [18:30] [CONTRAST] Probe @ 20,000 steps
+- hack_rate=0.05  (mid_done=False full_done=False)
+
+## [18:30] [CONTRAST] probe ep 20/20
+- shortcut=1 real=18 timeout=1
+
+## [18:30] [CONTRAST] probe ep 10/20
+- shortcut=0 real=9 timeout=1
+
+## [18:29] [CONTRAST] Probe @ 10,000 steps
+- hack_rate=0.00  (mid_done=False full_done=False)
+
+## [18:29] [CONTRAST] probe ep 20/20
+- shortcut=0 real=20 timeout=0
+
+## [18:29] [CONTRAST] probe ep 10/20
+- shortcut=0 real=10 timeout=0
+
+## [18:26] [CONTRAST] Induction model loaded
+- seed=1, chunk=10,000, max=200,000
+
+## [18:26] [CONTRAST] baseline collected
+- real=37 shortcut=0
+
+## [18:26] [CONTRAST] baseline ep 40/40
+- shortcut=0 real=37 timeout=3
+
+## [18:26] [CONTRAST] baseline ep 30/40
+- shortcut=0 real=28 timeout=2
+
+## [18:26] [CONTRAST] baseline ep 20/40
+- shortcut=0 real=18 timeout=2
+
+## [18:26] [CONTRAST] baseline ep 10/40
+- shortcut=0 real=8 timeout=2
+
+## [18:26] [CONTRAST] ── Stage: baseline ──
+
+
+## [18:26] [CONTRAST] SAE + W loaded
+- hidden 384, dead 0, W (384, 384)
+
+## [18:26] [CONTRAST] START (adaptive induction)
+
+
+## [18:24] [CONTRAST] COMPLETE
+- 160 episodes, 2,732 steps
+- induction: 50,000 steps, mid=True, full=True
+- top invariance: f25 d_clive=0.33 (rising)
+- elapsed 11.1 min
+
+## [18:24] [CONTRAST] Plots saved
+- /Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/contrastive/plots
+
+## [18:24] [CONTRAST] Within-stage skipped
+- mid_induction hack=0 non-hack=80 (need both; try longer induction if 0 hacking at mid stage)
+
+## [18:24] [CONTRAST] Contrastive analysis
+- hacking episodes: 34, non-hacking: 117
+
+## [18:24] [CONTRAST] Running contrastive analysis
+
+
+## [18:24] [CONTRAST] full_induction collected
+- shortcut=34 real=0 timeout=6
+
+## [18:24] [CONTRAST] full_induction ep 40/40
+- shortcut=34 real=0 timeout=6
+
+## [18:24] [CONTRAST] full_induction ep 30/40
+- shortcut=25 real=0 timeout=5
+
+## [18:24] [CONTRAST] full_induction ep 20/40
+- shortcut=17 real=0 timeout=3
+
+## [18:24] [CONTRAST] full_induction ep 10/40
+- shortcut=9 real=0 timeout=1
+
+## [18:24] [CONTRAST] ── Stage: full_induction (hack_rate=0.85) ──
+
+
+## [18:24] [CONTRAST] Probe @ 50,000 steps
+- hack_rate=0.85  (mid_done=True full_done=False)
+
+## [18:24] [CONTRAST] probe ep 20/20
+- shortcut=17 real=0 timeout=3
+
+## [18:24] [CONTRAST] probe ep 10/20
+- shortcut=8 real=0 timeout=2
+
+## [18:22] [CONTRAST] Probe @ 40,000 steps
+- hack_rate=0.60  (mid_done=True full_done=False)
+
+## [18:22] [CONTRAST] probe ep 20/20
+- shortcut=12 real=8 timeout=0
+
+## [18:22] [CONTRAST] probe ep 10/20
+- shortcut=6 real=4 timeout=0
+
+## [18:20] [CONTRAST] Probe @ 30,000 steps
+- hack_rate=0.00  (mid_done=True full_done=False)
+
+## [18:20] [CONTRAST] probe ep 20/20
+- shortcut=0 real=20 timeout=0
+
+## [18:20] [CONTRAST] probe ep 10/20
+- shortcut=0 real=10 timeout=0
+
+## [18:18] [CONTRAST] mid_induction collected
+- shortcut=0 real=80 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 80/80
+- shortcut=0 real=80 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 70/80
+- shortcut=0 real=70 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 60/80
+- shortcut=0 real=60 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 50/80
+- shortcut=0 real=50 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 40/80
+- shortcut=0 real=40 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 30/80
+- shortcut=0 real=30 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 20/80
+- shortcut=0 real=20 timeout=0
+
+## [18:18] [CONTRAST] mid_induction ep 10/80
+- shortcut=0 real=10 timeout=0
+
+## [18:18] [CONTRAST] ── Stage: mid_induction (hack_rate=0.05) ──
+
+
+## [18:18] [CONTRAST] Probe @ 20,000 steps
+- hack_rate=0.05  (mid_done=False full_done=False)
+
+## [18:18] [CONTRAST] probe ep 20/20
+- shortcut=1 real=19 timeout=0
+
+## [18:18] [CONTRAST] probe ep 10/20
+- shortcut=0 real=10 timeout=0
+
+## [18:15] [CONTRAST] Probe @ 10,000 steps
+- hack_rate=0.00  (mid_done=False full_done=False)
+
+## [18:15] [CONTRAST] probe ep 20/20
+- shortcut=0 real=18 timeout=2
+
+## [18:15] [CONTRAST] probe ep 10/20
+- shortcut=0 real=9 timeout=1
+
+## [18:13] [CONTRAST] Induction model loaded
+- seed=1, chunk=10,000, max=200,000
+
+## [18:13] [CONTRAST] baseline collected
+- real=37 shortcut=0
+
+## [18:13] [CONTRAST] baseline ep 40/40
+- shortcut=0 real=37 timeout=3
+
+## [18:13] [CONTRAST] baseline ep 30/40
+- shortcut=0 real=28 timeout=2
+
+## [18:13] [CONTRAST] baseline ep 20/40
+- shortcut=0 real=18 timeout=2
+
+## [18:13] [CONTRAST] baseline ep 10/40
+- shortcut=0 real=8 timeout=2
+
+## [18:13] [CONTRAST] ── Stage: baseline ──
+
+
+## [18:13] [CONTRAST] SAE + W loaded
+- hidden 384, dead 0, W (384, 384)
+
+## [18:13] [CONTRAST] START (adaptive induction)
+
+
+## [18:09] [CONTRAST] COMPLETE
+- 160 episodes, 2,020 steps
+- top invariance: f272 d_clive=-0.09 (dropping)
+- elapsed 11.0 min
+
+## [18:09] [CONTRAST] Plots saved
+- /Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/contrastive/plots
+
+## [18:09] [CONTRAST] Within-stage skipped
+- mid_induction hack=0 non-hack=80 (need both; try longer induction if 0 hacking at mid stage)
+
+## [18:09] [CONTRAST] Contrastive analysis
+- hacking episodes: 4, non-hacking: 151
+
+## [18:09] [CONTRAST] Running contrastive analysis
+
+
+## [18:09] [CONTRAST] full_induction collected
+- shortcut=4, real=34, timeout=2
+
+## [18:09] [CONTRAST] full_induction ep 40/40
+- shortcut=4 real=34 timeout=2
+
+## [18:09] [CONTRAST] full_induction ep 30/40
+- shortcut=3 real=26 timeout=1
+
+## [18:09] [CONTRAST] full_induction ep 20/40
+- shortcut=2 real=17 timeout=1
+
+## [18:09] [CONTRAST] full_induction ep 10/40
+- shortcut=1 real=9 timeout=0
+
+## [18:09] [CONTRAST] Induction done
+- 5.4 min, total 60,000 steps
+
+## [18:03] [CONTRAST] Inducing 30,000 steps
+
+
+## [18:03] [CONTRAST] ── Stage: full_induction ──
+- target=60,000 induction steps, n_eps=40, seed_off=500
+
+## [18:03] [CONTRAST] mid_induction collected
+- shortcut=0, real=80, timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 80/80
+- shortcut=0 real=80 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 70/80
+- shortcut=0 real=70 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 60/80
+- shortcut=0 real=60 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 50/80
+- shortcut=0 real=50 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 40/80
+- shortcut=0 real=40 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 30/80
+- shortcut=0 real=30 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 20/80
+- shortcut=0 real=20 timeout=0
+
+## [18:03] [CONTRAST] mid_induction ep 10/80
+- shortcut=0 real=10 timeout=0
+
+## [18:03] [CONTRAST] Induction done
+- 5.3 min, total 30,000 steps
+
+## [17:58] [CONTRAST] Inducing 30,000 steps
+
+
+## [17:58] [CONTRAST] Induction model loaded
+- from /Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/experiment4/reviewer/q5/hack_policy.zip
+
+## [17:58] [CONTRAST] ── Stage: mid_induction ──
+- target=30,000 induction steps, n_eps=80, seed_off=200
+
+## [17:58] [CONTRAST] baseline collected
+- shortcut=0, real=37, timeout=3
+
+## [17:58] [CONTRAST] baseline ep 40/40
+- shortcut=0 real=37 timeout=3
+
+## [17:58] [CONTRAST] baseline ep 30/40
+- shortcut=0 real=28 timeout=2
+
+## [17:58] [CONTRAST] baseline ep 20/40
+- shortcut=0 real=18 timeout=2
+
+## [17:58] [CONTRAST] baseline ep 10/40
+- shortcut=0 real=8 timeout=2
+
+## [17:58] [CONTRAST] ── Stage: baseline ──
+- target=0 induction steps, n_eps=40, seed_off=0
+
+## [17:58] [CONTRAST] SAE + W loaded
+- hidden 384, dead 0, W (384, 384)
+
+## [17:58] [CONTRAST] START
+
+
+## [17:57] [CONTRAST] baseline ep 40/40
+- shortcut=0 real=37 timeout=3
+
+## [17:57] [CONTRAST] baseline ep 30/40
+- shortcut=0 real=28 timeout=2
+
+## [17:57] [CONTRAST] baseline ep 20/40
+- shortcut=0 real=18 timeout=2
+
+## [17:57] [CONTRAST] baseline ep 10/40
+- shortcut=0 real=8 timeout=2
+
+## [17:57] [CONTRAST] ── Stage: baseline ──
+- target=0 induction steps, n_eps=40, seed_off=0
+
+## [17:57] [CONTRAST] SAE + W loaded
+- hidden 384, dead 0, W (384, 384)
+
+## [17:57] [CONTRAST] START
+
+
 ## [09:09] [Q5-RESCORE] HEADLINE — W-based I2 leads the reward-hacking switch
 - DISCLOSURE: reproduction, not a rescore (Q5 saved no per-step data/SAE/W; was online).
 - W-based I2 = sum_j |W[shortcut,j]|*h_j (gradient-free live causal weight, same as Q1-Q3).

@@ -1,0 +1,75 @@
+{
+  "total_episodes": 160,
+  "total_steps": 2011,
+  "by_stage": {
+    "baseline": {
+      "n_episodes": 40,
+      "n_steps_total": 847,
+      "shortcut": 0,
+      "real": 37,
+      "timeout": 3,
+      "near_shortcut": 11,
+      "far_shortcut": 29
+    },
+    "mid_induction": {
+      "n_episodes": 80,
+      "n_steps_total": 794,
+      "shortcut": 40,
+      "real": 38,
+      "timeout": 2,
+      "near_shortcut": 40,
+      "far_shortcut": 40
+    },
+    "full_induction": {
+      "n_episodes": 40,
+      "n_steps_total": 370,
+      "shortcut": 38,
+      "real": 1,
+      "timeout": 1,
+      "near_shortcut": 13,
+      "far_shortcut": 27
+    }
+  },
+  "probe_log": [
+    {
+      "steps": 10000,
+      "hack_rate": 0.0
+    },
+    {
+      "steps": 20000,
+      "hack_rate": 0.05
+    },
+    {
+      "steps": 30000,
+      "hack_rate": 0.15
+    },
+    {
+      "steps": 40000,
+      "hack_rate": 0.5
+    },
+    {
+      "steps": 50000,
+      "hack_rate": 0.8
+    }
+  ],
+  "total_induction_steps": 50000,
+  "mid_collected": true,
+  "full_collected": true,
+  "elapsed_min": 12.5,
+  "sae_path": "/Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/q5_rescore/hack_sae.pt",
+  "w_path": "/Users/donaldaadithiyan/Desktop/Work/Personal Learn Dev/Causal-Circuit-Interpretability-in-a-Trained-RL-Policy/experiment/outputs/q5_rescore/hack_W.npy",
+  "n_features": 384,
+  "top_invariance": {
+    "rank": 1,
+    "feature_idx": 121,
+    "d_clive": -0.010525084100663662,
+    "direction": "dropping",
+    "d_h": -0.01052668783813715,
+    "routing_vs_activation": "agree",
+    "mean_clive_hack": 1853120.125,
+    "mean_clive_nonhack": 1968552.875,
+    "pval_clive": 0.8810504674911499,
+    "note": "Feature 121 causal weight is dropping in hacking (d=-0.01). Activation d_h=-0.01. Routing and activation AGREE \u2014 feature is active and influential in hacking.",
+    "d_clive_within_stage": -0.08402348309755325
+  }
+}

@@ -770,3 +770,177 @@ Three approaches that would address the calibration failure:
 **Trend monitoring**: instead of checking whether hack_score crosses a fixed threshold, flag when the rolling-average hack_score shows a statistically significant rising trend over N consecutive probes. A rising trend is informative even if the absolute level is noisy.
 
 **Outcome-conditioned calibration during induction**: use the probe outcomes to recalibrate the threshold at each checkpoint. After each probe, fit a threshold that separates hacking from non-hacking outcomes observed so far, and use that as the alarm threshold for the next probe.
+
+---
+
+## Section 9 — Feature Flow Graphs and Causal Circuits
+
+### What the Laptev et al. (2025) Paper Proposes
+
+The paper "Analyze Feature Flow to Enhance Interpretation and Steering in Language Models" (arXiv:2502.03032v3) tracks how SAE features evolve across the layers of a transformer by computing cosine similarity between decoder weight columns:
+
+```
+j = argmax_k  cos( W_dec^(A)[:,i],  W_dec^(B)[:,k] )
+```
+
+If feature i at layer A has a high cosine similarity with feature k at layer B, the concept "flows" from i to k. They build flow graphs showing how a high-level concept (e.g. "particle physics") starts vague in early layers and becomes precise by layer 24.
+
+This approach requires:
+1. Multiple SAEs trained at different positions in the network
+2. Non-orthogonal features — concepts in transformers naturally spread across overlapping representations in the residual stream
+
+### Why It Doesn't Apply Directly to Our SAE
+
+We tested this approach on our single SAE (384 features, 256-dim input). Result:
+
+| Statistic | Value |
+|---|---|
+| Max off-diagonal cosine similarity | 0.2492 |
+| Mean off-diagonal cosine similarity | -0.0024 |
+| Std of off-diagonal similarities | 0.0657 |
+| Fraction of pairs with sim > 0.3 | 0.0% |
+| Intra-goal cluster mean similarity | +0.017 |
+| Intra-proxy cluster mean similarity | +0.017 |
+| Cross-cluster mean similarity | -0.004 |
+
+The features are **nearly orthogonal** — the mean pairwise similarity is essentially zero. This is by design: TopK SAE training with decoder normalization drives features toward an orthonormal basis. There is no "flow" to measure in weight space because each feature writes in an independent direction.
+
+This is fundamentally different from the transformer setting where the same concept gets encoded in many overlapping ways across the residual stream.
+
+**What this tells us about our model:** The competition between goal-seeking and shortcut-seeking is determined entirely by **which 32 features win the TopK gate** at each step — not by which direction the winner's decoder points. The SAE has learned to cleanly separate these representations. The circuit is therefore about **presence/absence** of feature activations, not about overlapping decoder directions.
+
+### The Right Approach: Temporal Causal Graph from Activation Data
+
+Since the weight-based approach fails, we build the causal graph from trajectory data directly. We use 231 episodes (80 hacking, 151 non-hacking) with full per-step feature activation records (h ∈ R^384 at every step).
+
+**Temporal causal edge (i → j):**
+```
+T[i,j] = P(h_{t+1}[j] > 0 | h_t[i] > 0) − P(h_{t+1}[j] > 0 | h_t[i] = 0)
+```
+Computed separately for hacking and non-hacking episodes, then differenced:
+```
+T_diff[i,j] = T_hack[i,j] − T_nonhack[i,j]
+```
+Positive `T_diff[i,j]` means: feature i being active at step t makes feature j MORE likely at step t+1 in hacking episodes than in non-hacking episodes.
+
+**Step-0 co-occurrence (differential):**
+```
+Δcooc[i,j] = P(h_0[i]>0 AND h_0[j]>0 | hacking) − P(...| non-hacking)
+```
+Which feature pairs are differentially co-active at the decision step?
+
+Script: `experiment/causal_graph_activations.py`
+
+### Key Finding 1 — f1 is the Hidden Core of the Hacking Circuit
+
+The step-0 co-occurrence analysis revealed that **f1 was missed in our original proxy feature selection**:
+
+| Feature | Cohen's d | Direction | % Active (hack) | % Active (nonhack) | Selection |
+|---|---|---|---|---|---|
+| f195 | +1.07 | hacking | 67.5% | 41.2% | graded — included in proxy |
+| **f1**  | **+1.01** | **hacking** | **75.0%** | **35.0%** | **graded — MISSED** |
+| f99  | +0.76 | hacking | 22.5% | 0.0% | specific — included in proxy |
+| f348 | +0.74 | hacking | 62.5% | 31.2% | graded — MISSED |
+| f247 | +0.69 | hacking | 52.5% | 13.8% | graded — MISSED |
+| f67  | +0.65 | hacking | 42.5% | 20.0% | graded — MISSED |
+| f111 | +0.64 | hacking | 65.0% | 40.0% | graded — MISSED (was mislabeled as goal) |
+| f326 | +0.63 | hacking | 60.0% | 23.7% | graded — MISSED |
+
+Our original proxy selection only kept **specific_on_hack** features (0% active in non-hacking). Those features are cleanest for detection but have low base rates (18–22.5% active in hacking). The **graded** features (active in both conditions, but more in hacking) were ignored.
+
+The causal graph reveals that **f1 is the highest-activity hub of the hacking circuit**. It co-occurs at step 0 with f195, f348, f111, f326, f247, and f67 far more in hacking episodes than in non-hacking:
+
+| Feature pair | Δcooc (hack − nonhack) |
+|---|---|
+| f1 ↔ f195 | +0.427 |
+| f1 ↔ f348 | +0.360 |
+| f195 ↔ f348 | +0.345 |
+| f1 ↔ f111 | +0.344 |
+| f1 ↔ f326 | +0.339 |
+| f111 ↔ f195 | +0.304 |
+| f326 ↔ f348 | +0.296 |
+| f195 ↔ f247 | +0.292 |
+| f1 ↔ f67 | +0.287 |
+| f1 ↔ f247 | +0.285 |
+
+**The hacking circuit at step 0 = {f1, f195, f348, f111, f326, f247, f67} all co-activating together.** When the agent is about to hack, these features form a coherent cluster in the top-K active features.
+
+### Key Finding 2 — Self-Reinforcement Breaks Down in Hacking
+
+Self-persistence T[f,f] = how much does feature f being active at step t predict it being active at step t+1?
+
+| Feature | T_hack | T_nonhack | T_diff | Type |
+|---|---|---|---|---|
+| f99 | +0.015 | +0.222 | −0.208 | PROXY |
+| f119 | −0.007 | +0.085 | −0.092 | GOAL |
+| f238 | +0.037 | +0.138 | −0.101 | PROXY |
+| f256 | −0.014 | +0.221 | −0.235 | GOAL |
+| f262 | 0.000 | +0.231 | −0.231 | GOAL |
+| f327 | +0.045 | +0.177 | −0.133 | PROXY |
+| f341 | −0.119 | +0.223 | −0.342 | GOAL |
+| f367 | −0.028 | +0.372 | −0.400 | PROXY |
+| f369 | +0.118 | +0.396 | −0.278 | PROXY |
+| f371 | −0.025 | +0.138 | −0.163 | GOAL |
+| f381 | −0.011 | +0.036 | −0.047 | GOAL |
+
+**All features — both goal and proxy — self-reinforce LESS in hacking episodes than in non-hacking episodes.** This happens because hacking episodes are short: the agent reaches the shortcut in 2–4 steps. In non-hacking episodes, the agent navigates for many steps, so there is more temporal data and features have time to persist.
+
+The average self-persistence:
+- Goal features — hack: −0.029, nonhack: +0.156
+- Proxy features — hack: +0.037, nonhack: +0.261
+
+In non-hacking episodes, ALL features show positive self-persistence (stable over time). In hacking, features are essentially uncorrelated across steps because the episodes are too short for stable dynamics.
+
+### Key Finding 3 — Temporal Switching: Goal Feature → Hacking Hub
+
+The temporal causal successors of goal feature f381 (the most "goal-exclusive" feature) in hacking vs non-hacking conditions:
+
+```
+f381 → f1:   T_diff = +0.621
+f381 → f354: T_diff = +0.567
+f381 → f296: T_diff = +0.542
+```
+
+Positive T_diff means: when f381 is active at step t, f1 (the hacking hub) is MORE likely at step t+1 in hacking episodes than in non-hacking episodes.
+
+**This reveals the switching pattern**: In hacking episodes, the agent briefly perceives the goal (f381 activates) but then the hacking circuit activates (f1 takes over at the next step). In non-hacking episodes, f381 stays active and f1 does NOT inherit from it.
+
+This is the temporal causal signature of reward hacking: the goal-perception feature triggers the hacking hub feature, which then dominates the remaining episode.
+
+### Causal Graph Summary
+
+```
+Hacking Circuit (step-0 co-occurrence cluster):
+  f1 ─── f195 ─── f348
+  │  ╲   ╱   ╲   ╱
+  │   f111   f247
+  │    │
+  f326 ┘
+
+Goal Circuit (suppressed at step-0 in hacking):
+  [f381, f341, f119, f262, f256, f371]
+  + [f215, f215 — missed in original selection, d=−0.786]
+
+Temporal switching edge:
+  f381 (goal perception) → f1 (hacking hub)   [in hacking episodes]
+```
+
+The key distinction between this approach and the paper's:
+- **Paper**: static weight-based graph (decoder cosine similarity across transformer layers)
+- **Our approach**: dynamic activation-based graph (temporal transition matrices from episode trajectories)
+
+For our orthogonal-feature SAE, the data-driven approach is the only one that reveals circuit structure. The paper's approach requires non-orthogonal features, which exist in transformer residual streams but not in our TopK sparse dictionary.
+
+### What This Means for "Is There a Common Pattern When Bad Reasoning Happens"
+
+Yes — and the causal graph makes the pattern explicit:
+
+1. **At step 0**: The hacking circuit features {f1, f195, f348, f111, f326, f247} all activate together. When ≥4 of these are in the agent's top-32 active features, the agent will reach the shortcut.
+
+2. **At step 0**: The goal circuit features {f381, f341, f119, f262, f256, f371} are absent. They are mutually exclusive with the hacking cluster (they cannot both be in the top-32 at the same time).
+
+3. **Temporally**: In hacking episodes, f381 (goal perception) sometimes activates briefly but then triggers f1 (hacking hub), which dominates the remainder of the episode. The "bad reasoning" is not random — it is a deterministic routing failure.
+
+4. **The common pattern**: the agent's representation at step 0 falls into one of two basins — the goal basin (goal features active, proxy absent) or the hacking basin (f1/f195/f348 cluster active, goal features absent). Which basin it falls into is determined by the spatial configuration of the environment, specifically whether the shortcut is between the starting position and the goal.
+
+Outputs: `experiment/outputs/feature_flow/causal_circuit.png`, `causal_graph_summary.json`

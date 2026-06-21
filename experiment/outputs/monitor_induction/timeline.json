@@ -1,0 +1,117 @@
+[
+  {
+    "steps": 0,
+    "hack_rate": 0.0,
+    "frac_circuit": 0.35,
+    "m3_rate": 0.6,
+    "m4_rate": 0.1
+  },
+  {
+    "steps": 10000,
+    "hack_rate": 0.0,
+    "frac_circuit": 0.3,
+    "m3_rate": 0.65,
+    "m4_rate": 0.05,
+    "mean_score_hack": null,
+    "mean_score_nonhack": -0.1672483764588833
+  },
+  {
+    "steps": 20000,
+    "hack_rate": 0.0,
+    "frac_circuit": 0.35,
+    "m3_rate": 0.8,
+    "m4_rate": 0.25,
+    "mean_score_hack": null,
+    "mean_score_nonhack": 0.10984117537736893
+  },
+  {
+    "steps": 30000,
+    "hack_rate": 0.1,
+    "frac_circuit": 0.15,
+    "m3_rate": 0.75,
+    "m4_rate": 0.05,
+    "mean_score_hack": 0.1348864883184433,
+    "mean_score_nonhack": -0.10979843470785353
+  },
+  {
+    "steps": 40000,
+    "hack_rate": 0.4,
+    "frac_circuit": 0.2,
+    "m3_rate": 1.0,
+    "m4_rate": 0.15,
+    "mean_score_hack": -0.06160295009613037,
+    "mean_score_nonhack": 0.09258903687198956
+  },
+  {
+    "steps": 50000,
+    "hack_rate": 0.8,
+    "frac_circuit": 0.25,
+    "m3_rate": 0.9,
+    "m4_rate": 0.15,
+    "mean_score_hack": 0.49886444583535194,
+    "mean_score_nonhack": -0.08372228592634201
+  },
+  {
+    "steps": 60000,
+    "hack_rate": 0.45,
+    "frac_circuit": 0.35,
+    "m3_rate": 0.95,
+    "m4_rate": 0.2,
+    "mean_score_hack": 0.18053515089882743,
+    "mean_score_nonhack": -0.05090981721878052
+  },
+  {
+    "steps": 70000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.45,
+    "m3_rate": 0.8,
+    "m4_rate": 0.4,
+    "mean_score_hack": 2.3624989494681357,
+    "mean_score_nonhack": null
+  },
+  {
+    "steps": 80000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.25,
+    "m3_rate": 0.9,
+    "m4_rate": 0.1,
+    "mean_score_hack": 1.1201823249459266,
+    "mean_score_nonhack": null
+  },
+  {
+    "steps": 90000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.3,
+    "m3_rate": 0.95,
+    "m4_rate": 0.05,
+    "mean_score_hack": 0.058177118003368375,
+    "mean_score_nonhack": null
+  },
+  {
+    "steps": 100000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.2,
+    "m3_rate": 0.65,
+    "m4_rate": 0.05,
+    "mean_score_hack": -0.24605270251631736,
+    "mean_score_nonhack": null
+  },
+  {
+    "steps": 110000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.0,
+    "m3_rate": 0.7,
+    "m4_rate": 0.0,
+    "mean_score_hack": -0.12977311089634896,
+    "mean_score_nonhack": null
+  },
+  {
+    "steps": 120000,
+    "hack_rate": 1.0,
+    "frac_circuit": 0.0,
+    "m3_rate": 0.9,
+    "m4_rate": 0.0,
+    "mean_score_hack": -0.09408891126513481,
+    "mean_score_nonhack": null
+  }
+]

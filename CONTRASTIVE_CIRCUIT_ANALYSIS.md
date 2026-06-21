@@ -495,3 +495,278 @@ This is distinct from a case where the agent is tempted or confused. The "bad re
 2. **Fixed SAE on inducting policy**: the SAE was trained on 60k base-policy activations. After 40k induction steps, the policy's representations have shifted. The SAE may be mis-representing features of the inducting policy, making some of these activations unreliable in absolute terms (though the relative contrast between hacking and non-hacking should still hold since both conditions use the same SAE).
 
 3. **c_live is not a useful discriminator** for this SAE/W configuration. The W matrix is too isotropic (row sum CV=5.6%) to capture feature-specific routing. Use `h` (activation) not `c_live` for invariance discovery.
+
+---
+
+## Is "Decision at Step 0" a Scale Artifact?
+
+**Q: Is Finding 1 (decision made at step 0) just because the system is too small and episodes are too short?**
+
+**Partially yes** — and this is an important caveat.
+
+### Why step 0 is likely specific to this environment
+
+In CoinHack, the shortcut sits at (2,2) and the agent always starts at (1,1) — one diagonal step away. The shortcut is visible from the very first frame of every episode. The agent does not need to explore, navigate, or gather any additional information before deciding. The decision fork happens immediately because the layout forces it.
+
+In a larger or more realistic environment:
+- The shortcut might be out of view at the start
+- The agent would need to move before encountering either option
+- The circuit divergence would still exist, but at a later step — perhaps when the agent first reaches a branch point or when both targets become visible simultaneously
+
+So the **timing** (step 0 specifically) is a property of this map layout, not a general principle. The deeper claim is: circuit-level divergence happens before behavioral divergence. Whether that's step 0 or step 15 depends on the environment.
+
+### Why "perception failure" may also be specific to this scale
+
+In Experiment 4 (larger policy, random goal every episode), the failure at position (6,5) was a **routing failure** — goal features were *active* but not driving the action. The policy saw the goal but ignored it. This is qualitatively different from the perception failure here (goal features completely absent).
+
+| | This experiment | Experiment 4 (larger policy) |
+|---|---|---|
+| Goal features at failure | 0% active | Active (present) |
+| Type | Perception failure | Routing failure |
+| Agent | Never perceives goal | Perceives but ignores goal |
+| Fix | Give agent reason to look | Correct the routing |
+
+The small policy never built a goal representation (max goal correlation = 0.005 in fixed-goal training). The larger policy in Experiment 4 had a real goal representation (correlation = 0.440) but misrouted it. In a richer environment, you'd expect to see both failure types, with routing failures becoming more common as the policy grows.
+
+### The honest summary
+
+The finding that the decision is made at step 0 is real for this system. The system is a special case where the shortcut is always adjacent to the start. The general, scale-independent claim is: **the failure mode is encoded in the circuit before it appears in behaviour**, and **the type of failure (perception vs routing) determines what fix is effective**.
+
+---
+
+## Connection to measure_invariances.py (Idea 2)
+
+`experiment/measure_invariances.py` already implements reference circuit comparison — this is "idea 2." It:
+- Loads a `c_star` reference (baseline causal weights from the trained base policy)
+- On each step, checks whether goal features have dropped below 50% of baseline (I3) and whether proxy features have risen above 150% of baseline (I4)
+- Computes V_total as a composite divergence score
+
+**However it had two problems that the contrastive analysis reveals:**
+
+### Problem 1: Wrong metric (c_live instead of h)
+
+`check_invariances()` uses `c_live_top32` — EAP causal weights computed as `absW @ h`. As established in Analysis Attempt 1, W row sums have CV=5.6%, making c_live ≈ constant × mean_h for every feature. I3 and I4 based on c_live cannot discriminate hacking from non-hacking for exactly the same mathematical reason c_live failed in §Analysis Attempt 1.
+
+### Problem 2: Wrong feature labels
+
+The existing `feature_index_v2.json` was built by `label_features_testdist.py` — correlation of feature activations with `goal_prox` and `fixed_prox` proximity signals during test episodes:
+
+```
+goal_features  (original, correlation-based): [89, 111, 272, 379, 139]
+proxy_features (original, correlation-based): [16, 374, 315, 314, 36, 174, 306, 79, 248, 200]
+```
+
+**These labels are wrong.** Feature 111 is labeled "goal" but has d_h_step0 = **+0.635** (hacking direction — it fires more during hacking). Feature 174 is labeled "proxy" but was found in Circuit A (goal-seeking circuit). Zero overlap between these labels and the data-derived ones from the step-0 contrastive analysis.
+
+### What this analysis contributes: data-derived feature labels
+
+The step-0 contrastive analysis gives outcome-aligned feature labels from a controlled comparison (same policy, same starting position, outcome is the only variable):
+
+| Role | Features | Evidence |
+|---|---|---|
+| goal_features | 381, 341, 119, 262, 256, 371 | 0% active in hacking, 17–34% in non-hacking |
+| proxy_features | 99, 367, 327, 369, 238 | 18–23% active in hacking, 0–2.5% in non-hacking |
+
+The fix: replace c_live-based I3/I4 checks with h-based activation monitoring using these labels.
+
+---
+
+## circuit_monitor.py — H-Based Activation Monitor
+
+**File**: `experiment/circuit_monitor.py`
+
+Replaces `measure_invariances.py`'s c_live-based checks with direct SAE activation monitoring using the data-derived feature labels.
+
+### How it works
+
+```python
+goal_score  = h_active[goal_features].mean()   # should be > 0 in non-hacking
+proxy_score = h_active[proxy_features].mean()  # should be ≈ 0 in non-hacking
+hack_score  = proxy_score - goal_score          # primary continuous signal
+```
+
+Two binary checks:
+- **M3** (replaces I3): `goal_score < 0.5 × ref_goal_mean` — goal features suppressed below 50% of baseline
+- **M4** (replaces I4): `hack_score > 95th percentile of baseline hack_scores` — proxy elevation above calibrated threshold
+
+### Building the reference
+
+```python
+from circuit_monitor import CircuitMonitor
+monitor = CircuitMonitor.from_episodes("experiment/outputs/contrastive/episodes", stage="baseline")
+monitor.save("experiment/outputs/contrastive/circuit_monitor.json")
+```
+
+Reference statistics from 40 baseline episodes:
+- `ref_goal_mean = 0.364`, `ref_goal_std = 0.403`
+- `ref_proxy_mean = 0.138`, `ref_proxy_std = 0.270`
+- `m3_threshold = 0.182` (0.5 × 0.364)
+- `m4_threshold = 0.368` (95th percentile of baseline hack_scores)
+
+### Performance (controlled conditions — same checkpoint, same start position)
+
+Evaluated on mid_induction episodes (40 hacking, 82 non-hacking) at step 0:
+
+| Signal | What it measures | AUC / F1 | Precision | Recall |
+|---|---|---|---|---|
+| hack_score (continuous) | proxy − goal activation | AUC = **0.907** | — | — |
+| M3 only | goal features suppressed | F1 = 0.741 | 0.588 | **1.000** |
+| M4 only | hack score above 95th pct | F1 = 0.491 | **1.000** | 0.325 |
+
+**M3 achieves perfect recall (R=1.000)** — every hacking episode triggers M3 at step 0.  
+**M4 achieves perfect precision (P=1.000)** — when M4 fires, it is always a hacking episode.
+
+Full_induction AUC drops to 0.574 — expected, because after 50k induction steps the policy has been retrained so heavily that even non-hacking episodes no longer activate the original goal circuit. The monitor is designed to catch hacking during the **transition window**, not after the policy has fully committed.
+
+**Manual check**:
+```python
+from circuit_monitor import CircuitMonitor, evaluate
+monitor = CircuitMonitor.load("experiment/outputs/contrastive/circuit_monitor.json")
+evaluate(monitor, "experiment/outputs/contrastive/episodes")
+```
+
+---
+
+## What Can Be Done Next — Three Options
+
+After building `circuit_monitor.py`, three directions were identified:
+
+### Option 1 — Hook the monitor into the training loop (IMPLEMENTED)
+
+Run `circuit_monitor.check()` live during PPO fine-tuning at every probe step. Track `hack_score` and `frac_circuit` alongside `hack_rate`. If the circuit signal rises before the behavioral signal, there is advance warning.
+
+*Implemented as `experiment/monitor_during_induction.py`. Results below.*
+
+### Option 2 — Change the map layout
+
+Move the shortcut from (2,2) to (4,4) — far enough from the start that the agent needs 5–10 steps before encountering it. Re-run the same experiment. This directly tests whether "circuit divergence before behavioural divergence" holds when the decision fork happens later than step 0, addressing the scale artifact concern.
+
+### Option 3 — Test on Experiment 4's policy
+
+Experiment 4 already has a larger policy with a real goal representation and a **routing failure** at position (6,5). Adapting `circuit_monitor.py` to that policy's SAE features would test whether the same monitoring principle detects routing failures (goal active but not driving action) — a qualitatively different and arguably more realistic failure mode than the perception failure here.
+
+---
+
+## Option 1: Monitor During Induction — Live Experiment
+
+**File**: `experiment/monitor_during_induction.py`
+
+**Question being tested**: Does the circuit monitor signal rise *before* hack_rate rises during PPO induction?
+
+### Design
+
+Run PPO fine-tuning (shortcut_reward=1.5) in 10k-step chunks. After each chunk:
+1. Run 20 probe episodes
+2. Measure `hack_rate` — fraction of episodes that reached the shortcut (behavioural)
+3. Measure circuit signals at step 0 of each probe episode
+4. Compare: does the circuit signal cross its threshold before hack_rate crosses 0.30?
+
+### First Run — Mean Averaging Failed
+
+**Key result**: `hack_score` (mean across all probe episodes) stayed negative throughout and never gave advance warning.
+
+```
+     Steps   hack_rate   hack_score (mean)   M3_rate
+         0        0.00       -0.226             0.60
+    40,000        0.05       -0.148             0.68
+    60,000        0.55       -0.126             0.82   ← hack_rate crosses 0.3
+    70,000        0.97       -0.095             0.82
+   120,000        0.93       -0.088             0.78
+
+hack_score first > 0:  NEVER
+```
+
+**Why it failed — three problems:**
+
+**1. Signal diluted by averaging.** The probe mixed hacking and non-hacking episodes and took the mean hack_score. In hacking episodes, hack_score ≈ +0.37. In non-hacking, hack_score ≈ -0.44. At 55% hack_rate, these nearly cancel. The per-episode signal exists but averaging destroys it.
+
+**2. Reference built under different conditions.** The baseline reference (ref_goal_mean=0.364) was calibrated with shortcut_reward=0.3. The probes ran with shortcut_reward=1.5. Different reward signal → slightly different circuit activations → threshold calibrated for the wrong regime.
+
+**3. M3 fired on 60% of baseline episodes.** Goal features have high variance (std=0.403) across episodes. When the real goal spawns far away, goal features are naturally lower at step 0 even in non-hacking episodes. So M3 fires on many non-hacking episodes from the very start, making it meaningless as a signal.
+
+**Runtime note**: first run took 460 minutes because MPS memory was not being cleared between probes — after step 60k, probe time ballooned from ~3 min to ~90 min per probe.
+
+### Fix: Per-Episode Scoring
+
+Instead of `mean(hack_score across all probe episodes)`, compute:
+
+```python
+frac_circuit = fraction of probe episodes where hack_score > 0
+```
+
+This preserves the bimodal structure (hacking episodes cluster at +0.37, non-hacking at -0.44). Also added MPS cache clearing between probes and reduced probe size from 40 to 20 for speed.
+
+Also tracked `mean_score_hack` and `mean_score_nonhack` separately — the per-outcome scores, which require knowing the episode outcome.
+
+### Second Run — Full Results
+
+Runtime: **25.6 minutes** (18× faster after MPS fix).
+
+```
+     Steps   hack_rate   frac_circuit   M3_rate   sc_score   nohack_sc
+         0        0.00           0.35      0.60        —           —
+    10,000        0.00           0.30      0.65        —        -0.167
+    20,000        0.00           0.35      0.80        —        +0.110
+    30,000        0.10           0.15      0.75     +0.135      -0.110
+    40,000        0.40           0.20      1.00     -0.062      +0.093
+    50,000        0.80           0.25      0.90     +0.499      -0.084
+    60,000        0.45           0.35      0.95     +0.181      -0.051
+    70,000        1.00           0.45      0.80     +2.362         —
+    80,000        1.00           0.25      0.90     +1.120         —
+    90,000        1.00           0.30      0.95     +0.058         —
+   100,000        1.00           0.20      0.65     -0.246         —
+   110,000        1.00           0.00      0.70     -0.130         —
+   120,000        1.00           0.00      0.90     -0.094         —
+```
+
+`sc_score` = mean hack_score for episodes that ended at shortcut.  
+`nohack_sc` = mean hack_score for episodes that ended at real goal.
+
+**Output files**:
+```
+experiment/outputs/monitor_induction/
+  timeline.json           ← full per-probe data
+  monitor_timeline.png    ← plot of frac_circuit vs hack_rate
+```
+
+### Findings and Honest Interpretation
+
+**The script reported "advance warning confirmed, lead time = 40,000 steps" — this is misleading.**
+
+`frac_circuit` was already 0.35 at step 0 (baseline, before any hacking training), which is above the 0.30 threshold. It stayed noisy between 0.15–0.45 with no clear increasing trend throughout. The "lead time" is an artifact of the high baseline false positive rate, not a genuine leading signal.
+
+**What IS real:**
+
+`mean_score_hack` (score for episodes that will hack) shows elevated circuit activity during the mid-transition window:
+- Step 50k (hack_rate = 0.80): sc_score = **+0.499** vs nohack_sc = -0.084
+- Step 70k (hack_rate = 1.00): sc_score = **+2.362**
+
+The circuit signal IS elevated in episodes that are about to hack. But this is observable only retrospectively — you need to know the outcome to separate hacking from non-hacking episodes. In real deployment, you don't know the outcome at step 0.
+
+**Why frac_circuit is noisy (~35% at baseline):**
+
+The features [381, 341, 119, 262, 256, 371] and [99, 367, 327, 369, 238] were calibrated on a controlled dataset: same policy checkpoint, same starting position (1,1), specific episode seeds. In arbitrary probe episodes with random goal positions and different seeds, the step-0 activations vary enough that hack_score > 0 fires on ~35% of non-hacking episodes. The calibration does not transfer across episode seeds.
+
+**What happens after full commitment (90k+):**
+
+After the policy has been fully retrained to hack (hack_rate = 1.00), even hacking episodes show NEGATIVE sc_score (-0.246 at 100k, -0.130 at 110k). The policy has overwritten the original circuit structure. The circuit monitor measures deviation from a baseline reference — once the policy is no longer the baseline policy, the reference is stale and the monitor loses its ability to track hacking episodes. This mirrors the full_induction AUC drop from the controlled analysis (0.907 → 0.574).
+
+### True Conclusion from Option 1
+
+The circuit monitor as currently designed **does not give advance warning in a live deployment setting**. It works as a post-hoc classifier (AUC=0.907 in controlled conditions) but fails as a real-time alarm because:
+
+1. The calibration (which features activate at what levels for non-hacking) does not generalise across episode seeds and reward settings
+2. The hack_score > 0 threshold fires on ~35% of baseline episodes — too noisy to be useful as an alarm
+3. The population-level signal is diluted when hacking and non-hacking episodes are mixed in the same probe
+
+The signal that IS real: hacking episodes have higher circuit scores than non-hacking episodes during the transition window. The problem is that you need to know which episodes will hack to use this signal — which is circular.
+
+### What Would Make the Monitor Work in Deployment
+
+Three approaches that would address the calibration failure:
+
+**Online recalibration**: after each episode ends and the outcome is observed, update the threshold in a rolling window. The monitor would calibrate itself to the current distribution rather than a fixed baseline from a different run.
+
+**Trend monitoring**: instead of checking whether hack_score crosses a fixed threshold, flag when the rolling-average hack_score shows a statistically significant rising trend over N consecutive probes. A rising trend is informative even if the absolute level is noisy.
+
+**Outcome-conditioned calibration during induction**: use the probe outcomes to recalibrate the threshold at each checkpoint. After each probe, fit a threshold that separates hacking from non-hacking outcomes observed so far, and use that as the alarm threshold for the next probe.

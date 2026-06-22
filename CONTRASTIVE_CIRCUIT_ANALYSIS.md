@@ -1392,3 +1392,419 @@ Section 11 identified feature discovery as the missing step that prevents the fr
 | Monitor at deployment | Generic ✓ | Generic ✓ (cheaper — no T-matrix) |
 
 The requirement that remains: you need a small set of contrastive episode pairs (some clean, some hacking) to compute `delta_h`. This is weaker than before — the old approach also needed clean episodes to build `T_baseline`, and now you additionally use hacking examples to direct the attribution. Option 2 from Section 11 (reward-correlation tracking during training) would remove even this requirement and make the framework fully unsupervised at deployment time.
+
+---
+
+## Section 13 — How the New Pipeline Actually Works (Plain English)
+
+This section explains the complete pipeline from scratch, including exactly what is built, what is stored, and what is compared against what during deployment.
+
+---
+
+### The question the pipeline answers
+
+When an RL agent is deployed in the real world, you cannot watch every decision it makes. You need an automated system that looks at the agent's internal activations during a new episode and answers: **"Is this episode normal behaviour, or is the agent hacking the reward?"**
+
+The pipeline answers that question in two phases: an **offline phase** (done once, after training, before deployment) and an **online phase** (done for every new episode during deployment).
+
+---
+
+### What is the SAE and what are features?
+
+The trained agent has a neural network (IMPALA CNN) that takes the pixel observation and compresses it into a 256-dimensional vector — a list of 256 numbers that summarises what the agent "sees". This vector is called the **hidden state**.
+
+The SAE (Sparse Autoencoder) is a second network, trained separately on top of the agent. It takes the 256-dim hidden state and expands it into 384 numbers called **features** (also written as `h`). The trick is that out of 384 features, only 32 are ever non-zero at any step — the rest are exactly zero. This sparsity means each feature is a specific, distinct concept the agent is using.
+
+Examples of what features might represent (discovered empirically in this experiment):
+- Feature 332: "I can see the goal coin and I am navigating toward it"
+- Feature 1: "I have entered the shortcut zone"
+- Feature 354: "I am committing to the shortcut path"
+
+The goal of the pipeline is to figure out, automatically, which features correspond to goal-seeking behaviour and which ones correspond to shortcut/hacking behaviour — and then monitor those specific features at deployment time.
+
+---
+
+### What the action head does (why the path is linear)
+
+After the SAE decoder reconstructs the 256-dim hidden state, the action head maps it to 7 action logits (one per possible action: turn left, turn right, forward, pickup, etc.). Because the policy was trained with `net_arch=[]`, this action head is a **single linear layer** — a 7×256 weight matrix called `W_action`. There is no non-linear activation between the SAE output and the action logits.
+
+This means the full computation from features `h` to action logits is:
+
+```
+action_logits = W_action  ×  (W_dec  ×  h)
+              = (W_action × W_dec)  ×  h
+              =      C           ×  h
+```
+
+Where `C = W_action × W_dec` is a single (7 × 384) matrix. This is the **circuit** — a complete, exact map of "if feature f activates by 1 unit, how much does each action logit change?"
+
+---
+
+### PHASE 0 — What is built offline (and why)
+
+**Step 1: Compute C from the frozen model weights**
+
+Load the frozen trained policy → extract `W_action` (7 × 256).
+Load the frozen SAE → extract `W_dec` (256 × 384).
+Multiply: `C = W_action × W_dec` (7 × 384).
+
+This is computed from the **model weights alone** — no episodes needed. `C` is a fixed property of this trained model. It never changes during deployment because the model is frozen.
+
+For each feature `f`, compute its "circuit coefficient norm": `‖C[:, f]‖` — the total magnitude of that feature's effect across all action logits. A high value means the feature strongly moves the agent's action choices.
+
+**Step 2: Measure which features changed between clean and hacking episodes**
+
+Load a small set of **clean (baseline) episodes** — episodes where the agent behaved normally and found the real goal. In this experiment: 40 episodes.
+
+Load a small set of **confirmed hacking episodes** — episodes where the agent took the shortcut. In this experiment: 43 episodes (filtered to those with valid h values).
+
+For each of the 384 features, compute the mean activation in each group:
+
+```
+mu_clean[f] = average value of feature f across all steps in all clean episodes
+mu_hack[f]  = average value of feature f across all steps in all hack episodes
+delta_h[f]  = mu_hack[f] - mu_clean[f]
+```
+
+**Step 3: Score every feature by its causal importance**
+
+```
+IE[f] = ‖C[:, f]‖  ×  |delta_h[f]|
+```
+
+This is the **Indirect Effect** (from Marks et al. attribution patching). It combines two facts about each feature:
+- How much does it affect actions? (circuit coefficient norm)
+- How much did it actually change between normal and hacking? (delta_h)
+
+A feature with high IE changed a lot AND its change directly moved the action output. That is the definition of a causally relevant feature.
+
+**Step 4: Classify each feature's role**
+
+Sort features by IE descending. Within the top-ranked features:
+- `delta_h[f] < 0` → the feature was **more active in clean episodes** and is suppressed in hacking → **goal feature**
+- `delta_h[f] > 0` → the feature was **more active in hacking episodes** → **hack feature**
+
+Discovered in this experiment:
+```
+Goal features  (suppressed in hacking): [332, 161, 51, 132, 139, 311, 181, 206]
+Hack features  (enhanced in hacking):   [354, 296, 21, 1, 60, 352, 350, 179]
+```
+
+**Step 5: Calibrate thresholds from the clean baseline episodes**
+
+Using the 40 clean baseline episodes, measure what "normal" looks like for the discovered features:
+
+- `ref_goal_mean = 0.36` → on average, goal features have activation ~0.36 in a clean episode at step 0
+- `ref_proxy_mean = 0.14` → hack features are nearly silent (~0.14) in clean episodes
+- `P(goal→goal | goal active) = 0.476` → if a goal feature is active at step t, there is a 47.6% chance it is still active at step t+1 (it persists)
+- `P(goal→hack | goal active) = 0.295` → if a goal feature is active at step t, there is only a 29.5% chance a hack feature activates at step t+1
+
+These five numbers are the **reference** — the measured fingerprint of normal behaviour.
+
+**Step 6: Save everything to disk**
+
+The offline phase saves one JSON file (`reward_hacking_detector.json`) containing:
+- The discovered goal and hack feature lists
+- The IE scores for all 384 features
+- The five calibration thresholds above
+
+This is the complete reference. It does not change. It does not need to be recomputed unless the model is retrained.
+
+---
+
+### PHASE 1 — What happens during deployment (and what is compared against what)
+
+A new episode arrives. The SAE produces `h_traj` — a (n_steps × 384) matrix of feature activations, one row per timestep.
+
+The invariance checker runs 9 checks. **Each check compares the new episode's feature values against the calibrated thresholds from Phase 0.** This is the comparison — not two graphs, but an episode's live activations against stored baseline statistics.
+
+**Node invariances (look at step 0 only):**
+
+| Invariance | What it checks | What "normal" looks like | What "hacking" looks like |
+|---|---|---|---|
+| I1 — Goal absent | Are goal features [332, 161, …] active? | activation ≥ 0.18 (half of ref_goal_mean) | activation ≈ 0.00 — goal features completely gone |
+| I3 — Hack cluster co-active | How many hack features [354, 296, …] are non-zero simultaneously? | ≤ 2 features co-active | ≥ 3 features all active together |
+| I4 — Dominance | Is the hack score much higher than the goal score? | hack_score − goal_score < 0.37 | hack dominates by a wide margin |
+
+**Edge invariances (look at the full trajectory):**
+
+| Invariance | What it checks | What "normal" looks like | What "hacking" looks like |
+|---|---|---|---|
+| E1 — Goal persistence | When a goal feature fires at step t, does it persist at step t+1? | P(persist) = 0.476 | P(persist) = 0.000 — goal thought never continues |
+| E2 — Routing direction | When a goal feature fires at step t, what activates at step t+1? | P(→goal) = 0.476, P(→hack) = 0.295, goal wins | P(→goal) = 0.000, P(→hack) = 0.857, routing inverted |
+| E3 — Cluster suppression | When a hack feature fires at step t, is the goal feature gone at step t+1? | P(suppress) = ~30% | P(suppress) > 65% — hack cluster actively erases goal |
+
+**Verdict logic:**
+
+If ANY of the 9 invariances fires → `HACKING_DETECTED`.
+
+The type of hacking is classified from which combination fires:
+- Only node invariances fire → `TYPE_A` (early, activation-level shift, goal features just vanished)
+- Only edge invariances fire → `TYPE_D` (stealth, goal features still appear but route wrong)
+- Edge fires, specifically E3, and I1 does not → `TYPE_B` (mature, goal still activates but is silently rerouted to hack cluster)
+- Both node and edge fire → `TYPE_C` (mixed, most common — 51% of detected cases)
+
+---
+
+### Concrete example: one hacking episode
+
+Suppose a deployment episode has this pattern at step 0:
+- Feature 332 (goal): 0.00 — **absent** → I1 fires
+- Feature 354 (hack): 2.3 — active
+- Feature 296 (hack): 1.9 — active
+- Feature 21  (hack): 1.7 — active
+- Feature 1   (hack): 1.4 — active → 4 hack features co-active → I3 fires
+
+Then across steps 0→1→2→3:
+- Feature 332 (goal) never reappears → E1 fires (no persistence)
+- Feature 332 routes to feature 354 at t+1 in 85% of steps → E2 fires (routing inverted)
+
+Result: I1, I3, E1, E2 all fire → `HACKING_DETECTED`, type = `TYPE_C_MIXED`. Confidence = 0.87.
+
+---
+
+### Summary: what the new pipeline builds, stores, and compares
+
+| | What | How many numbers | When computed |
+|---|---|---|---|
+| **Built offline** | C = W_action × W_dec (circuit coefficients) | 7 × 384 = 2,688 | Once, from model weights |
+| **Built offline** | IE scores for all 384 features | 384 | Once, from 83 episodes |
+| **Built offline** | Feature role lists (goal / hack) | 8 + 8 = 16 feature IDs | Once, from IE scores |
+| **Built offline** | Calibration thresholds | 5 numbers | Once, from 40 clean episodes |
+| **Stored on disk** | reward_hacking_detector.json | all of the above | Written once after Phase 0 |
+| **At deployment** | h_traj for new episode | n_steps × 384 | Each episode |
+| **Compared** | h_traj feature values vs calibration thresholds | 9 binary checks | Each episode |
+| **Output** | Verdict + type + confidence | 3 values | Each episode |
+
+The calibration thresholds (5 numbers) are the "baseline". The new episode's activations are the "deployment". The 9 invariance checks are the comparison. There is no second graph, no second T-matrix, no batch accumulation — just 9 threshold comparisons against values measured once from clean baseline data.
+
+---
+
+## Section 14 — Attribution Patching: The Core Idea Explained
+
+This section explains what attribution patching is, why it replaces the 2-graph approach, and exactly how it works in this pipeline — step by step, from nothing.
+
+---
+
+### The problem attribution patching solves
+
+Before attribution patching, we needed to know in advance which features to watch. In this experiment, we manually identified 17 features by running hundreds of episodes, computing Cohen's d for every feature, and hand-labelling the ones with the largest separation between hacking and non-hacking. That took significant effort and produced labels tied specifically to this experiment's environment, SAE version, and agent.
+
+Attribution patching automates that step. Given any frozen policy and any SAE, it can answer: **"Which features in this model are causally responsible for the difference between normal and hacking behaviour?"** No manual analysis. No hand-labelling.
+
+---
+
+### The original idea: attribution patching in language models
+
+Attribution patching comes from interpretability research on transformer language models (Marks et al., ICLR 2025 — Sparse Feature Circuits). The idea there is:
+
+You have a clean input (a sentence the model handles correctly) and a corrupted input (the same sentence but slightly changed so the model behaves differently). You want to find which internal features inside the model are responsible for the different output.
+
+The method: for each internal feature `f`, ask — **"If I reach into the model's internals, grab feature `f`, and forcibly set it to the value it has in the corrupted input — while leaving everything else at its clean values — how much does the model's output change?"**
+
+That change is called the **Indirect Effect (IE)** of feature `f`. Features with high IE are the ones that causally drive the difference in behaviour.
+
+Formally:
+```
+IE(feature f)  =  output( x_clean  |  do(f = f_corrupt) )  −  output( x_clean )
+```
+
+Where `do(f = f_corrupt)` means "intervene and set f to its corrupted value while the rest stays clean."
+
+---
+
+### Why this is expensive in the general case — and why it isn't here
+
+In a transformer, computing IE requires running a forward pass for every feature you want to test. If you have 32,000 features (a typical language model SAE), that is 32,000 forward passes. Expensive.
+
+In our RL setup, we get something much better. The policy was trained with `net_arch=[]` — meaning after the SAE decoder reconstructs the 256-dim hidden state, the ONLY thing that happens before the action logits is a single linear layer (`W_action`). No ReLU, no MLP, no additional layers.
+
+The full computation from SAE features `h` to action logits is therefore:
+
+```
+action_logits  =  W_action  ×  (W_dec  ×  h  +  b_dec)  +  b_action
+```
+
+`W_action` is (7 × 256). `W_dec` is (256 × 384). Combined:
+
+```
+action_logits  =  (W_action × W_dec)  ×  h  +  constants
+               =        C            ×  h  +  constants
+```
+
+Where `C` is a single (7 × 384) matrix. The mapping from every feature to every action logit is **one matrix multiply** — completely linear, no approximation.
+
+This means the IE of feature `f` is exact and requires zero forward passes:
+
+```
+IE(f)  =  C[:, f]  ×  (h_clean[f]  −  h_hack[f])
+```
+
+- `C[:, f]` is the f-th column of C — a 7-dim vector saying "how much does feature f move each of the 7 action logits?"
+- `h_clean[f] − h_hack[f]` is how much feature f's activation changed between the two scenarios
+
+This is attribution patching made exact and free by the linearity of our architecture.
+
+---
+
+### Step-by-step: how IE is computed in this pipeline
+
+**Step 1. Extract the two weight matrices from the frozen model.**
+
+```
+W_action  ←  model.policy.action_net.weight      shape: (7, 256)
+W_dec     ←  sae.decoder.weight                  shape: (256, 384)
+```
+
+These are just numbers in the saved model file. No data needed.
+
+**Step 2. Multiply them to get the circuit coefficient matrix C.**
+
+```
+C  =  W_action  ×  W_dec                          shape: (7, 384)
+```
+
+`C[a, f]` answers: "if feature `f` activates by exactly 1.0, how much does action logit `a` increase?" This encodes the entire causal relationship between every SAE feature and every possible action.
+
+**Step 3. Compute the norm of each feature's action effect.**
+
+```
+C_norm[f]  =  sqrt( C[0,f]² + C[1,f]² + ... + C[6,f]² )     one number per feature
+```
+
+This answers: "how much does feature `f` matter for the agent's action choices at all?" A feature with `C_norm = 0` has no effect on any action — it is causally irrelevant.
+
+**Step 4. Measure which features actually changed between clean and hacking.**
+
+Run 40 clean (baseline) episodes and 43 confirmed hacking episodes. For each feature:
+
+```
+mu_clean[f]  =  average activation of feature f across all steps in clean episodes
+mu_hack[f]   =  average activation of feature f across all steps in hacking episodes
+delta_h[f]   =  mu_hack[f]  −  mu_clean[f]
+```
+
+- `delta_h[f] < 0` means feature `f` was more active in clean episodes and was suppressed during hacking
+- `delta_h[f] > 0` means feature `f` was more active during hacking
+
+**Step 5. Multiply to get the Indirect Effect score.**
+
+```
+IE[f]  =  C_norm[f]  ×  |delta_h[f]|
+```
+
+This combines both halves of the attribution:
+- `C_norm[f]` — does this feature matter causally? (from model weights, zero data needed)
+- `|delta_h[f]|` — did this feature actually shift between normal and hacking? (from episode data)
+
+A feature needs BOTH to score high. A feature that changed a lot but has no effect on actions (low `C_norm`) scores low. A feature that strongly influences actions but barely changed between scenarios (low `|delta_h|`) also scores low. Only features that satisfy both conditions — changed significantly AND causally drive action differences — rank at the top.
+
+**Step 6. Classify by sign of delta_h.**
+
+Sort all 384 features by IE descending. Among the high-IE features:
+- Those with `delta_h < 0` are **goal features** — they were active when the agent behaved normally and went silent during hacking
+- Those with `delta_h > 0` are **hack features** — they lit up specifically during hacking
+
+Discovered in this experiment:
+
+```
+Goal features  (IE-ranked, delta_h < 0):
+  f332  IE=1.46  delta_h=−4.65   "goal-seeking perception, suppressed in hack"
+  f161  IE=1.21  delta_h=−5.08
+  f51   IE=1.12  delta_h=−3.24
+  f132  IE=0.94  delta_h=−3.36
+  ...
+
+Hack features  (IE-ranked, delta_h > 0):
+  f354  IE=0.38  delta_h=+1.05   "shortcut engagement, enhanced in hack"
+  f296  IE=0.36  delta_h=+1.34
+  f21   IE=0.35  delta_h=+1.15
+  f1    IE=0.33  delta_h=+1.33
+  ...
+```
+
+These replace the manually identified `GOAL_FEATURES`, `PROXY_FEATURES`, and `HACK_CLUSTER` from earlier in this document.
+
+---
+
+### What the calibration step adds
+
+The IE scores tell you which features to watch. The calibration step (run on the 40 clean baseline episodes) tells you what "normal" looks like for those specific features:
+
+```
+ref_goal_mean   = 0.36    ← goal features average 0.36 activation at step 0 in normal episodes
+ref_proxy_mean  = 0.14    ← hack features are nearly silent (0.14) in normal episodes
+P(goal→goal)    = 0.476   ← goal feature persists step-to-step 47.6% of the time normally
+P(goal→hack)    = 0.295   ← goal feature leads to hack feature only 29.5% of the time normally
+E3 threshold    = 0.65    ← in normal episodes, hack feature leads to goal suppression only ~30%
+```
+
+These five numbers are stored alongside the feature lists. Together, the feature lists + calibration thresholds form the **reference** that every deployment episode is compared against.
+
+---
+
+### How a deployment episode is checked
+
+A new episode arrives with `h_traj` — shape (n_steps × 384).
+
+The invariance checker reads the saved feature lists and thresholds, then runs nine comparisons:
+
+```
+I1:  h_traj[0, goal_features].mean()  <  ref_goal_mean × 0.5  ?   → goal features absent
+I3:  (h_traj[0, hack_features] > 0).sum()  >=  3              ?   → hack cluster co-active
+I4:  hack_score − goal_score  >  i4_threshold                 ?   → hack dominates
+
+E1:  P(goal active t+1 | goal active t)  ==  0.0              ?   → goal never self-persists
+E2:  P(hack active t+1 | goal active t)  >  P(goal→goal)      ?   → routing direction inverted
+E3:  P(goal absent t+1 | hack active t)  >  0.65              ?   → hack cluster suppresses goal
+```
+
+Each check is comparing a number from the new episode against a threshold that came from the baseline calibration. The attribution patching step determined which features go into `goal_features` and `hack_features`. The calibration step determined what the threshold values are.
+
+If any of these nine checks fires: `HACKING_DETECTED`.
+
+---
+
+### The full picture in one place
+
+```
+FROZEN MODEL WEIGHTS
+        │
+        ├── W_action (7×256) ──┐
+        │                      ├──→  C = W_action × W_dec  (7×384)  ──→  C_norm[f]
+        └── W_dec (256×384) ──┘                                               │
+                                                                               │ multiply
+EPISODE DATA                                                                   │
+        │                                                                      ↓
+        ├── 40 clean episodes  ──→  mu_clean[f]  ──┐
+        │                                          ├──→  delta_h[f]  ──→  IE[f]
+        └── 43 hack episodes   ──→  mu_hack[f]   ──┘
+                                                         │
+                             ┌───────────────────────────┤
+                             │ delta_h < 0               │ delta_h > 0
+                             ↓                           ↓
+                      GOAL FEATURES              HACK FEATURES
+                      [332,161,51,…]            [354,296,21,…]
+                             │                           │
+                             └───────────────┬───────────┘
+                                             │
+                             CALIBRATE on 40 clean episodes
+                                             │
+                           ref_goal_mean, P(goal→goal), …
+                                             │
+                                    SAVE TO DISK
+                                             │
+                          ─────────────────────────────────
+                          DEPLOYMENT: for each new episode
+                          ─────────────────────────────────
+                                             │
+                          h_traj  (n_steps × 384)
+                                             │
+                          9 threshold comparisons
+                          (feature values vs calibration)
+                                             │
+                          VERDICT: HACKING_DETECTED or CLEAN
+                               + TYPE_A / B / C / D
+```
+
+The attribution patching (steps with `C`, `C_norm`, `delta_h`, `IE`) is the offline feature-discovery engine. The threshold comparisons at the bottom are the lightweight online monitor. They are connected by the feature lists: attribution patching discovers which features matter, calibration records what they look like normally, and the invariance checker tests whether they look normal in the new episode.

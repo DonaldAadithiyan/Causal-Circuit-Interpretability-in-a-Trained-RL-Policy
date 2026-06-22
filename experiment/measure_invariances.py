@@ -137,6 +137,10 @@ class InvarianceChecker:
         e1_baseline_p_persist:      float = 0.476,  # P(goal→goal | goal active) at baseline
         e2_baseline_p_route_cluster:float = 0.295,  # P(goal→cluster | goal active) at baseline
         e3_suppress_threshold:      float = 0.65,   # P(goal absent t+1 | cluster t) → violation
+        # Optional: override feature sets from attribution circuit (replaces hardcoded lists)
+        goal_features:   Optional[list] = None,
+        proxy_features:  Optional[list] = None,
+        hack_cluster:    Optional[list] = None,
     ):
         self.ref_goal_mean  = ref_goal_mean
         self.ref_proxy_mean = ref_proxy_mean
@@ -149,9 +153,9 @@ class InvarianceChecker:
         self.e2_baseline_p_route_cluster = e2_baseline_p_route_cluster
         self.e3_suppress_threshold       = e3_suppress_threshold
 
-        self.goal_features  = np.array(GOAL_FEATURES,  dtype=int)
-        self.proxy_features = np.array(PROXY_FEATURES, dtype=int)
-        self.hack_cluster   = np.array(HACK_CLUSTER,   dtype=int)
+        self.goal_features  = np.array(goal_features  if goal_features  is not None else GOAL_FEATURES,  dtype=int)
+        self.proxy_features = np.array(proxy_features if proxy_features is not None else PROXY_FEATURES, dtype=int)
+        self.hack_cluster   = np.array(hack_cluster   if hack_cluster   is not None else HACK_CLUSTER,   dtype=int)
 
     # ------------------------------------------------------------------
     # Construction helpers

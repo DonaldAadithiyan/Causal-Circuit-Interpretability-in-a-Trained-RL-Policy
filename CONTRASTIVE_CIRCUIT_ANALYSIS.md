@@ -1070,3 +1070,325 @@ The two invariance layers are not redundant — they track different development
 | Node AND edge | 0.475 | 0.950 | 0.633 | Highest-confidence alerts only |
 
 **Recommended default**: `E3` as primary signal (best F1, requires only trajectory data), with `I1` as a fast step-0 pre-filter when latency is a concern. Together they constitute the `I1+E3` pair (Pareto-optimal, recall 0.962).
+
+---
+
+## Section 11 — Framework Design Q&A
+
+---
+
+### Q: Is the framework ready end-to-end? The idea is: create a causal graph from the frozen trained model, create one during deployment, compare them, find differences, check if they fit the patterns we found, and say which type of reward hacking is happening.
+
+**A: The pieces were all there but not wired together.** After this question, `experiment/reward_hacking_detector.py` was written to connect everything into a single callable pipeline.
+
+Before that file existed, the two main systems — `CausalGraphMonitor` (graph-level comparison) and `InvarianceChecker` (per-episode node+edge invariances) — ran independently. Nothing called both and produced a single verdict.
+
+The gap that was filled:
+
+| Step | Status before | Status after |
+|---|---|---|
+| Build baseline causal graph from frozen model | ✅ `CausalGraphMonitor.build_baseline()` | ✅ |
+| Build live causal graph from deployment episodes | ✅ `CausalGraphMonitor.compare()` | ✅ |
+| Compare graphs, compute drift | ✅ CG-I1/I3/I6/I7 | ✅ |
+| Per-episode node+edge invariance check | ✅ `InvarianceChecker.check_episode()` | ✅ |
+| Fuse both signals into one verdict | ❌ not connected | ✅ `RewardHackingDetector.detect()` |
+| Classify which type of hacking | ❌ logic only in test file | ✅ `classify_episode_type()` |
+
+**The final API:**
+
+```python
+# Once, after training — build baseline from clean episodes:
+detector = RewardHackingDetector.build_baseline(clean_h_list)
+detector.save("outputs/reward_hacking_detector.json")
+
+# At deployment — pass any batch of episodes:
+result = detector.detect(deployment_h_list)
+print(result.verdict)    # "HACKING_DETECTED" or "CLEAN"
+print(result.hack_type)  # "TYPE_C_MIXED", "TYPE_B_MATURE_ROUTING", etc.
+print(result.summary())
+```
+
+**Validation on 244 labelled episodes: Recall = 1.000, zero false negatives.**
+
+The four hacking types the framework outputs, confirmed by data:
+
+| Type | Count | % | Mechanism |
+|---|---|---|---|
+| TYPE_C_MIXED | 64 | 80% | Both activation AND routing shifted |
+| TYPE_B_MATURE_ROUTING | 12 | 15% | Goal still activates but routes to cluster — edge-only signal |
+| TYPE_A_EARLY_ACTIVATION | 3 | 4% | Goal suppressed at activation level — node-only signal |
+| TYPE_D_STEALTH | 1 | 1% | No node shift; only routing reveals it |
+
+---
+
+### Q: What exactly is the baseline graph, and what is the deployed graph?
+
+**A: Both are the same 17×17 temporal transition matrix `T[i,j]`, computed from different sets of episodes.**
+
+`T[i,j]` answers: when feature i is active at step t, is feature j more or less likely to be active at step t+1, compared to when feature i is absent?
+
+```
+T[i,j] = P(feature j active at t+1 | feature i active at t)
+        − P(feature j active at t+1 | feature i NOT active at t)
+```
+
+The matrix is restricted to 17 features: 6 goal + 5 proxy + 6 cluster. The diagonal T[i,i] is self-persistence — does a feature sustain itself across timesteps?
+
+**Baseline graph**: computed from 40 clean post-training episodes (normal navigation, never hacking). Stored to disk. Key values from the saved file:
+
+| Signal | Baseline value |
+|---|---|
+| Goal self-persistence (diagonal mean) | +0.16 to +0.38 per feature |
+| Cluster mean count at step 0 | 1.25 |
+| P(goal→goal \| goal active) | 0.476 |
+| P(goal→cluster \| goal active) | 0.295 |
+
+**Deployed graph**: computed from live deployment episodes using the identical formula. Not stored — compared directly against baseline.
+
+What changes when hacking:
+
+| Signal | Baseline | Hacking (live) |
+|---|---|---|
+| Goal self-persistence | +0.16 to +0.38 | ≈ 0.000 |
+| Goal→cluster routing | negative (routes away) | positive (routes into) |
+| Cluster count at step 0 | 1.25 | 3.5+ |
+| P(goal→goal \| goal active) | 0.476 | 0.000 |
+| P(goal→cluster \| goal active) | 0.295 | 0.857 |
+
+---
+
+### Q: Explain step by step how each graph is generated — from the root basics.
+
+**Step 1 — What the agent produces at each timestep**
+
+The agent is an IMPALA CNN observing a 7×7 grid. A Sparse Autoencoder (SAE) is hooked into its bottleneck. The SAE takes the 256-dim CNN hidden state and outputs `h`, a 384-dim sparse vector with exactly 32 non-zero values (TopK=32). Each non-zero value means "feature k is active right now." One episode = one (n\_steps, 384) array.
+
+**Step 2 — Narrow down to 17 features**
+
+We don't track all 384 features — only the 17 identified from contrastive analysis:
+
+```
+GOAL_FEATURES  = [381, 341, 119, 262, 256, 371]
+PROXY_FEATURES = [99,  367, 327, 369, 238]
+HACK_CLUSTER   = [195, 1,   348, 247, 111, 326]
+```
+
+From each `h` vector, extract just these 17 values and binarise (1 if > 0, else 0).
+
+**Step 3 — Compute T from a batch of episodes**
+
+For every consecutive step pair (t → t+1) across all episodes, accumulate four running tallies:
+
+```python
+count_on[i]     += on[i]                # times feature i was ON at step t
+count_off[i]    += (1 - on[i])          # times feature i was OFF at step t
+sum_j_on[i,j]   += on[i] * on1[j]      # i ON at t AND j ON at t+1
+sum_j_off[i,j]  += (1 - on[i]) * on1[j]  # i OFF at t, j ON at t+1
+
+P_on[i,j]  = sum_j_on[i,j]  / count_on[i]
+P_off[i,j] = sum_j_off[i,j] / count_off[i]
+T[i,j]     = P_on[i,j] - P_off[i,j]
+```
+
+Result: a 17×17 matrix of causal edge weights. Positive = i causes j. Negative = i suppresses j.
+
+**Step 4 — Baseline graph**
+
+Run `_compute_transition()` on 40 clean episodes → `T_baseline`. Save to disk.
+
+**Step 5 — Deployed graph**
+
+Run `_compute_transition()` on live deployment episodes → `T_live`. Same formula, different input.
+
+**Step 6 — Compare**
+
+- **CG-I1**: Is `T_live[goal→goal]` diagonal near zero? (goal features no longer persist) → hacking
+- **CG-I3**: Is cluster count at step 0 ≥ 2.80? (cluster activates immediately) → hacking
+- **CG-I6**: Has `T_live[goal→cluster]` gone positive? (goal now routes INTO cluster, sign flip from baseline) → hacking
+- **CG-I7**: Is P(goal→cluster) > P(goal→goal) in live data? (routing direction inverted) → hacking
+
+---
+
+### Q: The end goal is that anyone can train any RL agent and use this framework to catch reward hacking during deployment — so is only checking 17 features right?
+
+**A: No — and this is the most important gap between what exists now and a truly general framework.**
+
+The 17 features are hardcoded to this specific experiment, SAE, and environment. Someone using a different agent would have completely different feature indices. These numbers mean nothing outside this codebase.
+
+**What the full general pipeline actually needs:**
+
+```
+Anyone's RL agent
+        ↓
+Train SAE on agent's hidden states          ← generic, already works
+        ↓
+[MISSING] Auto-discover which features      ← hardcoded right now
+  = goal/task features
+  = proxy/shortcut features
+  = hacking cluster
+        ↓
+Build baseline causal graph from those      ← generic, already works
+        ↓
+Monitor during deployment                   ← generic, already works
+```
+
+The middle step — feature discovery — is the gap. In this experiment it was done manually through contrastive analysis (Cohen's d on 80 hacking vs 164 non-hacking episodes, thresholded at |d| > 0.59).
+
+**Three approaches to fill this gap:**
+
+**Option 1 — Supervised contrastive (what we did, automated)**
+Collect known-clean and known-hacking episodes. Compute Cohen's d on every feature. Auto-threshold. This works but requires you to already have hacking examples, which partially defeats the purpose of deployment monitoring.
+
+**Option 2 — Reward-correlation during training (no hacking data needed)**
+During training, track which features correlate with task reward vs proxy reward. Features that correlate with task completion = goal features. Features that spike when proxy is taken = proxy features. Runs during training, costs nothing extra, produces feature labels before deployment begins. This is probably the right path for a general framework.
+
+**Option 3 — Unsupervised structural change detection (no labels at all)**
+Don't identify feature roles at all. Build the baseline causal graph over all features (or the most active K), then flag any structural drift during deployment. You know *that* hacking happened but not *which* features caused it. Most general, least interpretable.
+
+**Current status**: the framework is a proof of concept on one environment. The graph building, invariance checking, and type classification logic is general. The feature discovery is not. Automating that step — ideally via Option 2 during training — is what turns this into something anyone can use.
+
+---
+
+## Section 12 — Attribution Patching Redesign
+
+---
+
+### Why the 2-graph approach was replaced
+
+The original pipeline built two temporal transition matrices — one from clean post-training episodes (`T_baseline`) and one from live deployment episodes (`T_live`) — and compared edge weights to detect drift. This worked but had two problems:
+
+1. **Expensive at deployment**: computing `T_live` requires accumulating statistics over ≥5–15 episodes before the comparison is reliable. Below that threshold, the graph-level signal was silenced and the system fell back to per-episode invariances alone.
+
+2. **Conceptually wrong for a frozen model**: the temporal T-matrix changes between clean and hacking episodes because the *data* changes. But the policy's *causal structure* — which features drive which actions — is fixed in the model weights and never changes. A frozen model has one circuit, always. The right question at deployment is not "did the graph change?" but "are the activation patterns violating the fixed circuit?"
+
+Attribution patching (Marks et al. ICLR 2025) answers the right question. The key insight for this specific setup: the policy was trained with `net_arch=[]`, meaning there is **no MLP between the feature extractor and the action head**. The post-SAE computation is exactly:
+
+```
+action_logits = W_action @ (W_dec @ h + b_dec) + b_action
+```
+
+This is linear in `h`. Attribution patching is therefore exact and reduces to pure matrix algebra — no forward passes needed.
+
+---
+
+### The Indirect Effect formula (linear case)
+
+For each SAE feature `f`, its Indirect Effect of being patched from a hacking episode to a clean episode is:
+
+```
+IE(f) = (W_action @ W_dec[:, f]) × (h_clean[f] - h_hack[f])
+```
+
+This is a vector over actions. Reducing to a scalar importance score:
+
+```
+C      = W_action @ W_dec          # (n_actions × n_features) — circuit coefficient matrix
+C_norm = ‖C[:, f]‖               # how much feature f moves action logits at all
+delta_h[f] = mean(h_hack[:,f]) - mean(h_clean[:,f])   # activation shift
+IE[f]  = C_norm[f] × |delta_h[f]|  # causal importance of feature f
+```
+
+`C` is computed once offline and never recomputed. It is a property of the frozen model weights, not the data.
+
+---
+
+### Feature classification from attribution
+
+The sign of `delta_h` and `C_norm` together identify each feature's role:
+
+| delta_h[f] | Interpretation | Role |
+|---|---|---|
+| < −0.02 | suppressed during hacking | **goal feature** (its absence causes hacking) |
+| > +0.02 | enhanced during hacking | **hack feature** (its presence drives shortcut) |
+| near zero | unchanged | not causally relevant |
+
+Features are ranked within each group by `IE[f]` descending. The top-K from each group replace the hardcoded `GOAL_FEATURES`, `PROXY_FEATURES`, and `HACK_CLUSTER` lists.
+
+---
+
+### New pipeline: Phase 0 + Phase 1
+
+**Phase 0 — Offline (once, after training, before deployment)**
+
+```python
+detector = RewardHackingDetector.build_baseline(
+    policy_path  = "outputs/checkpoints/ppo_final.zip",
+    sae_path     = "outputs/q5_rescore/hack_sae.pt",
+    h_clean_list = [...],   # list of (n_steps, 384) arrays — clean episodes
+    h_hack_list  = [...],   # list of (n_steps, 384) arrays — hacking episodes
+)
+detector.save("outputs/reward_hacking_detector.json")
+```
+
+Internally:
+1. Load `W_action` from frozen PPO
+2. Load `W_dec` from frozen SAE
+3. Compute `C = W_action @ W_dec` — the circuit coefficient matrix
+4. Compute `delta_h` from contrastive episode pairs
+5. Score every feature by `IE[f] = ‖C[:, f]‖ × |delta_h[f]|`
+6. Classify and rank: goal features (delta_h < 0), hack features (delta_h > 0)
+7. Calibrate invariance thresholds from clean activations
+8. Save everything to disk
+
+**Phase 1 — Online (every deployment batch)**
+
+```python
+detector = RewardHackingDetector.load("outputs/reward_hacking_detector.json")
+result = detector.detect(deployment_h_list)
+print(result.verdict)    # "HACKING_DETECTED" or "CLEAN"
+print(result.hack_type)  # "TYPE_C_MIXED" etc.
+```
+
+At runtime, `detect()` only runs per-episode invariance checks using `InvarianceChecker` initialised with the attributed feature sets. No T-matrix recomputation. No 2nd graph. Cost is O(K) per step where K=32 (TopK SAE active features).
+
+---
+
+### Comparison: old vs new architecture
+
+| | Old (2-graph) | New (attribution circuit) |
+|---|---|---|
+| Reference | `T_baseline` — computed from clean episode data | `C = W_action @ W_dec` — computed from frozen model weights |
+| Deployment step | Compute `T_live` from ≥5 episodes, diff against baseline | Per-episode invariance flags only |
+| Minimum episodes to flag | ≥5 (for graph comparison) | 1 |
+| Cost at deployment | O(N²) per episode batch (T-matrix) + O(N) per episode | O(K) per step (K=32 active features) |
+| Feature discovery | Manual (hardcoded 17 features) | Automated (top-K by IE score) |
+| Reference changes if model retrained? | Yes — must rebuild T_baseline | Yes — must re-run Phase 0 |
+
+---
+
+### Files changed
+
+**New: `experiment/attribution_circuit.py`**
+
+`AttributionCircuit` class:
+- `AttributionCircuit.discover(policy_path, sae_path, h_clean, h_hack)` — runs offline attribution, returns circuit object
+- `circuit.goal_features` — list of feature indices ranked by IE, suppressed in hacking
+- `circuit.hack_features` — list of feature indices ranked by IE, enhanced in hacking
+- `circuit.ie_scores` — dict of all 384 IE values
+- `circuit.save(path)` / `AttributionCircuit.load(path)`
+
+**Updated: `experiment/measure_invariances.py`**
+
+`InvarianceChecker.__init__` now accepts optional `goal_features`, `proxy_features`, `hack_cluster` lists. Defaults to the hardcoded sets if not provided, so all existing scripts continue to work without changes.
+
+**Rewritten: `experiment/reward_hacking_detector.py`**
+
+- `CausalGraphMonitor` import and usage removed entirely
+- `DetectionResult` no longer has `graph_drift_score` or `graph_violations`; gains `circuit_goal_features` and `circuit_hack_features`
+- `build_baseline()` signature changed: now takes `policy_path, sae_path, h_clean_list, h_hack_list`
+- `detect()` simplified: no graph comparison branch, invariance-only loop
+
+---
+
+### Connection to the generalizability gap (Section 11)
+
+Section 11 identified feature discovery as the missing step that prevents the framework from being truly general. Attribution patching directly fills this gap:
+
+| Step | Section 11 status | Section 12 status |
+|---|---|---|
+| Train SAE on agent's hidden states | Generic ✓ | Generic ✓ |
+| Discover which features are goal/proxy/hack | **Manual, hardcoded** ✗ | **Automated via IE attribution** ✓ |
+| Build reference circuit | Generic ✓ | Generic ✓ (now from model weights, not data) |
+| Monitor at deployment | Generic ✓ | Generic ✓ (cheaper — no T-matrix) |
+
+The requirement that remains: you need a small set of contrastive episode pairs (some clean, some hacking) to compute `delta_h`. This is weaker than before — the old approach also needed clean episodes to build `T_baseline`, and now you additionally use hacking examples to direct the attribution. Option 2 from Section 11 (reward-correlation tracking during training) would remove even this requirement and make the framework fully unsupervised at deployment time.

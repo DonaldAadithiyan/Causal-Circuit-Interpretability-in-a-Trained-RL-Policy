@@ -944,3 +944,129 @@ Yes — and the causal graph makes the pattern explicit:
 4. **The common pattern**: the agent's representation at step 0 falls into one of two basins — the goal basin (goal features active, proxy absent) or the hacking basin (f1/f195/f348 cluster active, goal features absent). Which basin it falls into is determined by the spatial configuration of the environment, specifically whether the shortcut is between the starting position and the goal.
 
 Outputs: `experiment/outputs/feature_flow/causal_circuit.png`, `causal_graph_summary.json`
+
+---
+
+## Section 10 — Invariance Combination Analysis
+
+**Script**: `experiment/test_invariance_combinations.py`
+
+Systematically evaluates all 2^9 − 1 subsets of the nine invariances (I1–I6 node, E1–E3 edge) under an OR-trigger strategy to find which combinations best detect reward hacking overall and by hacking subtype.
+
+---
+
+### Part 1 — Single Invariance Ranking
+
+| Inv | Type | Precision | Recall | F1 |
+|---|---|---|---|---|
+| **E3** | edge | 0.480 | **0.900** | **0.626** |
+| I1 | node | 0.456 | 0.837 | 0.590 |
+| I3 | node | 0.485 | 0.625 | 0.546 |
+| I4 | node | 0.769 | 0.250 | 0.377 |
+| I2 | node | 0.667 | 0.250 | 0.364 |
+| E1 | edge | 0.338 | 0.287 | 0.311 |
+| E2 | edge | 0.386 | 0.212 | 0.274 |
+| I5 | node | 0.213 | 0.125 | 0.157 |
+| I6 | node | 0.125 | 0.012 | 0.023 |
+
+E3 (cluster suppresses goal routing) is the single best invariance by F1 and recall, outperforming every node invariance individually.
+
+---
+
+### Part 2 — Best Pairs by Type (OR-trigger)
+
+**Node + Node**
+| Pair | Precision | Recall | F1 |
+|---|---|---|---|
+| I1+I4 | 0.456 | 0.850 | 0.594 |
+| I3+I4 | 0.504 | 0.712 | 0.591 |
+| I1+I3 | 0.427 | 0.912 | 0.582 |
+
+**Edge + Edge**
+| Pair | Precision | Recall | F1 |
+|---|---|---|---|
+| E2+E3 | 0.457 | 0.937 | 0.615 |
+| E1+E3 | 0.443 | 0.962 | 0.606 |
+
+**Node + Edge (cross-type)**
+| Pair | Precision | Recall | F1 |
+|---|---|---|---|
+| I1+E1 | 0.444 | **1.000** | 0.615 |
+| I6+E3 | 0.468 | 0.900 | 0.615 |
+| I1+E2 | 0.448 | 0.975 | 0.614 |
+| I4+E3 | 0.462 | 0.900 | 0.610 |
+
+The cross-type pair `I1+E1` achieves **perfect recall (1.000)** on all 244 episodes — every hacking episode triggers either the node signal (goal features suppressed) or the edge signal (goal thought never self-persists). This is the minimum pair that catches everything.
+
+---
+
+### Part 3 — Pareto-Optimal Subsets
+
+Pareto frontier in precision/recall space (no dominated points):
+
+| Subset | Size | Precision | Recall | F1 |
+|---|---|---|---|---|
+| I4 | 1 | **0.769** | 0.250 | 0.377 |
+| I3+I4 | 2 | 0.504 | 0.712 | 0.591 |
+| I3+I4+E2 | 3 | 0.481 | 0.812 | 0.605 |
+| **E3** | 1 | 0.480 | 0.900 | **0.626** |
+| E2+E3 | 2 | 0.457 | 0.937 | 0.615 |
+| I1+E2 | 2 | 0.448 | 0.975 | 0.614 |
+| **I1+E1** | 2 | 0.444 | **1.000** | 0.615 |
+
+Three operating points stand out:
+- **I4 alone** → use when false positives are costly (precision 0.769), accepts missing 75% of hacking
+- **E3 alone** → best single-invariance operating point (F1=0.626, recall=0.900)
+- **I1+E1** → use when missing any hacking is unacceptable (recall=1.000)
+
+---
+
+### Part 4 — Hacking Episode Venn Breakdown
+
+Of 80 total hacking episodes:
+
+| Group | Count | % |
+|---|---|---|
+| Node only (node fires, edge silent) | 3 | 3.8% |
+| Edge only (edge fires, node silent) | 1 | 1.2% |
+| Both node AND edge fire | 76 | 95.0% |
+| Neither — missed by all invariances | **0** | **0.0%** |
+
+The single edge-only ("stealth") hacking episode is `full_induction`, 3 steps, near-shortcut: the agent reaches the shortcut so fast that node activations never fully shift, but the routing pattern (E1+E3 both fire) reveals what happened.
+
+Together, node+edge invariances leave **zero hacking episodes undetected**.
+
+---
+
+### Part 5 — Per Hacking Subtype: Which Combination Is Best
+
+| Subtype | n | Best combo | Recall | F1 | Why |
+|---|---|---|---|---|---|
+| Spatial: near | 31 | I4 (node) | 0.419 | 0.520 | Short path → strong activation shift, high precision filter works |
+| Spatial: far | 49 | I1+E2 (mixed) | 0.980 | 0.497 | Agent traverses more steps; routing flip visible before full activation shift |
+| Quick hack (≤4 steps) | 61 | I3 (node) | 0.787 | 0.593 | Cluster co-activation is the dominant fast signal |
+| Slow hack (≥5 steps) | 19 | I4 (node) | 0.316 | 0.387 | Harder to detect overall; I1 has recall 0.95 here |
+| **Stage: mid_induction** | 40 | **I1 (node)** | **1.000** | 0.500 | Goal features perfectly suppressed even in partial hacking |
+| **Stage: full_induction** | 40 | **E3 (edge)** | **1.000** | 0.506 | Node activations partially normalize; routing stays flipped |
+
+The stage breakdown reveals the core mechanistic insight:
+
+**Early reward hacking (mid_induction)** is an activation phenomenon — the goal features are suppressed first. Node invariance I1 catches 100% of these cases.
+
+**Mature reward hacking (full_induction)** is a routing phenomenon — node activations partially recover but the causal routing stays inverted. Edge invariance E3 catches 100% of these cases while I1 misses 33% of them.
+
+The two invariance layers are not redundant — they track different developmental stages of the same behavioral failure.
+
+---
+
+### Combined Deployment Strategy
+
+| Strategy | Precision | Recall | F1 | When to use |
+|---|---|---|---|---|
+| Any node OR edge | 0.360 | 1.000 | 0.530 | Safety-critical: catch everything |
+| Any edge only | 0.435 | 0.962 | 0.599 | When only trajectories are available |
+| **E3 alone** | **0.480** | **0.900** | **0.626** | Best single-invariance deployment |
+| **I1+E1** | 0.444 | **1.000** | 0.615 | Minimum pair for perfect recall |
+| Node AND edge | 0.475 | 0.950 | 0.633 | Highest-confidence alerts only |
+
+**Recommended default**: `E3` as primary signal (best F1, requires only trajectory data), with `I1` as a fast step-0 pre-filter when latency is a concern. Together they constitute the `I1+E3` pair (Pareto-optimal, recall 0.962).

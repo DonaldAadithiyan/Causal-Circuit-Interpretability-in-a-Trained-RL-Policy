@@ -87,7 +87,8 @@ TYPE_D    = "TYPE_D_STEALTH"            # edge only, node looks normal
 NODE_INVS = {"I1_goal_absent", "I2_proxy_present", "I3_cluster_active",
              "I4_dominance", "I5_exclusivity", "I6_goal_routing"}
 EDGE_INVS = {"E1_goal_persistence_lost", "E2_goal_routing_flipped",
-             "E3_cluster_suppresses_goal"}
+             "E3_cluster_suppresses_goal",
+             "E5_hack_suppresses_goal_featpair"}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -250,6 +251,18 @@ class RewardHackingDetector:
         # hand-labelled features — they are wrong for the new feature indices.
         cal = _calibrate_all(h_clean_list, goal_feats, proxy_feats, cluster_feats)
 
+        # Load feature-to-feature routing graph (E4/E5) if available
+        routing_graph_path = os.path.join(
+            os.path.dirname(__file__), "outputs/feature_flow/attributed_routing_graph.json"
+        )
+        routing_edges_g2h, routing_edges_h2g = [], []
+        if os.path.exists(routing_graph_path):
+            rg = json.load(open(routing_graph_path))
+            routing_edges_g2h = rg.get("routing_edges_g2h", [])
+            routing_edges_h2g = rg.get("routing_edges_h2g", [])
+            print(f"[build_baseline] Loaded {len(routing_edges_g2h)} g2h + "
+                  f"{len(routing_edges_h2g)} h2g routing edges for E4/E5")
+
         checker = InvarianceChecker(
             ref_goal_mean               = cal["ref_goal_mean"],
             ref_proxy_mean              = cal["ref_proxy_mean"],
@@ -263,6 +276,8 @@ class RewardHackingDetector:
             goal_features               = goal_feats,
             proxy_features              = proxy_feats,
             hack_cluster                = cluster_feats,
+            routing_edges_g2h           = routing_edges_g2h,
+            routing_edges_h2g           = routing_edges_h2g,
         )
 
         return cls(circuit, checker)
@@ -302,6 +317,8 @@ class RewardHackingDetector:
             goal_features               = goal_feats,
             proxy_features              = proxy_feats,
             hack_cluster                = cluster_feats,
+            routing_edges_g2h           = d.get("routing_edges_g2h", []),
+            routing_edges_h2g           = d.get("routing_edges_h2g", []),
         )
         return cls(circuit, checker)
 
@@ -326,6 +343,8 @@ class RewardHackingDetector:
             "e1_baseline_p_persist":       float(ic.e1_baseline_p_persist),
             "e2_baseline_p_route_cluster": float(ic.e2_baseline_p_route_cluster),
             "e3_suppress_threshold":       float(ic.e3_suppress_threshold),
+            "routing_edges_g2h":           ic.routing_edges_g2h,
+            "routing_edges_h2g":           ic.routing_edges_h2g,
         }
         json.dump(data, open(path, "w"), indent=2)
         print(f"Detector saved → {path}")

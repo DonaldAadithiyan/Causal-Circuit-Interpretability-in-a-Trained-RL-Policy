@@ -141,6 +141,9 @@ class InvarianceChecker:
         goal_features:   Optional[list] = None,
         proxy_features:  Optional[list] = None,
         hack_cluster:    Optional[list] = None,
+        # Feature-to-feature routing edges (from build_feature_transition_graph.py)
+        routing_edges_g2h: Optional[list] = None,  # [{goal_feat, hack_feat, threshold}, ...]
+        routing_edges_h2g: Optional[list] = None,  # [{hack_feat, goal_feat, threshold}, ...]
     ):
         self.ref_goal_mean  = ref_goal_mean
         self.ref_proxy_mean = ref_proxy_mean
@@ -156,6 +159,10 @@ class InvarianceChecker:
         self.goal_features  = np.array(goal_features  if goal_features  is not None else GOAL_FEATURES,  dtype=int)
         self.proxy_features = np.array(proxy_features if proxy_features is not None else PROXY_FEATURES, dtype=int)
         self.hack_cluster   = np.array(hack_cluster   if hack_cluster   is not None else HACK_CLUSTER,   dtype=int)
+
+        # Feature-to-feature routing edges for E4/E5
+        self.routing_edges_g2h = routing_edges_g2h or []  # [{goal_feat, hack_feat, threshold, p_nonhack}, ...]
+        self.routing_edges_h2g = routing_edges_h2g or []  # [{hack_feat, goal_feat, threshold, p_nonhack}, ...]
 
     # ------------------------------------------------------------------
     # Construction helpers
@@ -385,35 +392,91 @@ class InvarianceChecker:
         # Violated if suppression probability exceeds threshold with enough evidence
         e3 = (e3_cond >= _MIN_COND) and (e3_p_suppress > self.e3_suppress_threshold)
 
+        # ── E4: Goal-to-Hack Routing Hijack ───────────────────────────────
+        # For each specific (goal_i → hack_j) edge discovered in Phase 0:
+        # In clean episodes this transition is rare (<2%). In hacking it can be ~1.0.
+        # Fires if any edge's per-episode P exceeds its calibrated threshold.
+        e4 = False
+        e4_fired_edges = []
+        e4_details_list = []
+        for edge in self.routing_edges_g2h:
+            gi, hj = int(edge["goal_feat"]), int(edge["hack_feat"])
+            thresh = float(edge["threshold"])
+            cond, route = 0, 0
+            for t in range(n_steps - 1):
+                if h_traj[t, gi] > 0:
+                    cond += 1
+                    if h_traj[t + 1, hj] > 0:
+                        route += 1
+            if cond >= _MIN_COND:
+                p = route / cond
+                e4_details_list.append({"gi": gi, "hj": hj, "p": p, "thresh": thresh, "cond": cond})
+                if p > thresh:
+                    e4 = True
+                    e4_fired_edges.append({"gi": gi, "hj": hj, "p": round(p, 3), "thresh": round(thresh, 3)})
+
+        # ── E5: Hack-to-Goal Suppression (feature-level) ──────────────────
+        # For each specific (hack_i → goal_j) suppression edge:
+        # In clean episodes, goal_j follows hack_i with p_nonhack.
+        # In hacking episodes, goal_j is absent. Threshold = 1 - p_nonhack + margin.
+        # Fires if any edge's suppression rate exceeds its calibrated threshold.
+        e5 = False
+        e5_fired_edges = []
+        e5_details_list = []
+        for edge in self.routing_edges_h2g:
+            hi, gj = int(edge["hack_feat"]), int(edge["goal_feat"])
+            thresh = float(edge["threshold"])  # suppression rate threshold
+            cond, suppressed = 0, 0
+            for t in range(n_steps - 1):
+                if h_traj[t, hi] > 0:
+                    cond += 1
+                    if h_traj[t + 1, gj] == 0:  # goal_j absent at t+1
+                        suppressed += 1
+            if cond >= _MIN_COND:
+                p_suppress = suppressed / cond
+                e5_details_list.append({"hi": hi, "gj": gj, "p_suppress": p_suppress, "thresh": thresh, "cond": cond})
+                if p_suppress > thresh:
+                    e5 = True
+                    e5_fired_edges.append({"hi": hi, "gj": gj, "p_suppress": round(p_suppress, 3), "thresh": round(thresh, 3)})
+
         edge_violations = {
-            "E1_goal_persistence_lost":     e1,
-            "E2_goal_routing_flipped":      e2,
-            "E3_cluster_suppresses_goal":   e3,
+            "E1_goal_persistence_lost":       e1,
+            "E2_goal_routing_flipped":        e2,
+            "E3_cluster_suppresses_goal":     e3,
+            "E4_goal_routes_to_hack":         e4,
+            "E5_hack_suppresses_goal_featpair": e5,
         }
 
-        # Edge severity: weighted by empirical recall on node-clean hacking cases
-        # E3 strongest (recall 0.90), E1 and E2 moderate on full dataset
+        # Edge severity weights: E3/E4 strongest, E1/E2/E5 moderate
         e1_score = 1.0 if e1 else 0.0
         e2_score = max(0.0, (e2_p_gc - e2_p_gg)) if e2_cond > 0 else 0.0
         e3_score = max(0.0, e3_p_suppress - self.e3_suppress_threshold) if e3_cond > 0 else 0.0
+        e4_score = float(len(e4_fired_edges))
+        e5_score = float(len(e5_fired_edges))
 
-        edge_severity = 1.0 * e1_score + 1.5 * e2_score + 2.0 * e3_score
+        edge_severity = 1.0 * e1_score + 1.5 * e2_score + 2.0 * e3_score + 2.0 * e4_score + 1.5 * e5_score
 
         edge_details = {
-            "e1_cond_steps":     e1_cond,
-            "e1_p_persist":      e1_p_persist,
-            "e1_baseline":       self.e1_baseline_p_persist,
-            "e2_cond_steps":     e2_cond,
-            "e2_p_goal_to_goal": e2_p_gg,
+            "e1_cond_steps":        e1_cond,
+            "e1_p_persist":         e1_p_persist,
+            "e1_baseline":          self.e1_baseline_p_persist,
+            "e2_cond_steps":        e2_cond,
+            "e2_p_goal_to_goal":    e2_p_gg,
             "e2_p_goal_to_cluster": e2_p_gc,
-            "e2_baseline_p_gc":  self.e2_baseline_p_route_cluster,
-            "e3_cond_steps":     e3_cond,
-            "e3_p_suppress":     e3_p_suppress,
-            "e3_threshold":      self.e3_suppress_threshold,
-            "e1_score":          e1_score,
-            "e2_score":          e2_score,
-            "e3_score":          e3_score,
-            "edge_severity":     edge_severity,
+            "e2_baseline_p_gc":     self.e2_baseline_p_route_cluster,
+            "e3_cond_steps":        e3_cond,
+            "e3_p_suppress":        e3_p_suppress,
+            "e3_threshold":         self.e3_suppress_threshold,
+            "e4_fired_edges":       e4_fired_edges,
+            "e4_n_edges_checked":   len(e4_details_list),
+            "e5_fired_edges":       e5_fired_edges,
+            "e5_n_edges_checked":   len(e5_details_list),
+            "e1_score":             e1_score,
+            "e2_score":             e2_score,
+            "e3_score":             e3_score,
+            "e4_score":             e4_score,
+            "e5_score":             e5_score,
+            "edge_severity":        edge_severity,
         }
 
         return edge_violations, edge_severity, edge_details
@@ -478,12 +541,16 @@ class InvarianceChecker:
             e2gc_str = f"{e2gc:.3f}" if not (isinstance(e2gc, float) and e2gc != e2gc) else "n/a"
             e3p = details["e3_p_suppress"]
             e3p_str = f"{e3p:.3f}" if not (isinstance(e3p, float) and e3p != e3p) else "n/a"
+            e4_fired = details.get("e4_fired_edges", [])
+            e5_fired = details.get("e5_fired_edges", [])
             lines += [
                 "  [Edge invariances]",
                 f"    E1 P(goal→goal|goal)={e1p_str}  (baseline={details['e1_baseline']:.3f})",
                 f"    E2 P(goal→goal)={e2gg_str}  P(goal→cluster)={e2gc_str}"
                 f"  (baseline gc={details['e2_baseline_p_gc']:.3f})",
                 f"    E3 P(goal absent|cluster)={e3p_str}  (threshold={details['e3_threshold']:.2f})",
+                f"    E4 goal→hack routing hijack: {len(e4_fired)} edges fired",
+                f"    E5 hack→goal suppression (feat-pair): {len(e5_fired)} edges fired",
                 f"    edge_severity={details.get('edge_severity', 0.0):.4f}",
             ]
         lines.append(f"  severity={details['severity']:.4f}  violations={details['n_violations']}")
@@ -529,7 +596,8 @@ def evaluate(episode_dir: str, checker: InvarianceChecker):
     node_invs = ["I1_goal_absent", "I2_proxy_present", "I3_cluster_active",
                  "I4_dominance", "I5_exclusivity", "I6_goal_routing"]
     edge_invs = ["E1_goal_persistence_lost", "E2_goal_routing_flipped",
-                 "E3_cluster_suppresses_goal"]
+                 "E3_cluster_suppresses_goal", "E4_goal_routes_to_hack",
+                 "E5_hack_suppresses_goal_featpair"]
 
     print("  -- Node invariances --")
     for inv in node_invs:

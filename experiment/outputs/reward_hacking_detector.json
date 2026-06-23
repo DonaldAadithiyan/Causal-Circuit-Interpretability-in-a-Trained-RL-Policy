@@ -1187,5 +1187,189 @@
   "i3_count": 2,
   "e1_baseline_p_persist": 0.9096296296161537,
   "e2_baseline_p_route_cluster": 0.02370370370335254,
-  "e3_suppress_threshold": 0.8877049179118517
+  "e3_suppress_threshold": 0.8877049179118517,
+  "routing_edges_g2h": [
+    {
+      "goal_feat": 132,
+      "hack_feat": 296,
+      "p_nonhack": 0.004754358161648178,
+      "p_hack": 1.0,
+      "diff": 0.9952456418383518,
+      "threshold": 0.5023771790808241,
+      "n_ep_hack": 6,
+      "n_ep_nonhack": 39
+    },
+    {
+      "goal_feat": 132,
+      "hack_feat": 354,
+      "p_nonhack": 0.009508716323296355,
+      "p_hack": 1.0,
+      "diff": 0.9904912836767037,
+      "threshold": 0.5047543581616482,
+      "n_ep_hack": 6,
+      "n_ep_nonhack": 39
+    },
+    {
+      "goal_feat": 132,
+      "hack_feat": 21,
+      "p_nonhack": 0.014263074484944533,
+      "p_hack": 1.0,
+      "diff": 0.9857369255150554,
+      "threshold": 0.5071315372424723,
+      "n_ep_hack": 6,
+      "n_ep_nonhack": 39
+    },
+    {
+      "goal_feat": 161,
+      "hack_feat": 350,
+      "p_nonhack": 0.0061823802163833074,
+      "p_hack": 0.9090909090909091,
+      "diff": 0.9029085288745258,
+      "threshold": 0.4576366446536462,
+      "n_ep_hack": 11,
+      "n_ep_nonhack": 46
+    },
+    {
+      "goal_feat": 51,
+      "hack_feat": 21,
+      "p_nonhack": 0.012364760432766615,
+      "p_hack": 0.8181818181818182,
+      "diff": 0.8058170577490517,
+      "threshold": 0.41527328930729246,
+      "n_ep_hack": 15,
+      "n_ep_nonhack": 43
+    },
+    {
+      "goal_feat": 181,
+      "hack_feat": 352,
+      "p_nonhack": 0.005673758865248227,
+      "p_hack": 0.7333333333333333,
+      "diff": 0.727659574468085,
+      "threshold": 0.36950354609929076,
+      "n_ep_hack": 8,
+      "n_ep_nonhack": 25
+    },
+    {
+      "goal_feat": 51,
+      "hack_feat": 179,
+      "p_nonhack": 0.0061823802163833074,
+      "p_hack": 0.6818181818181818,
+      "diff": 0.6756358016017985,
+      "threshold": 0.3440002810172825,
+      "n_ep_hack": 15,
+      "n_ep_nonhack": 43
+    },
+    {
+      "goal_feat": 51,
+      "hack_feat": 350,
+      "p_nonhack": 0.0077279752704791345,
+      "p_hack": 0.6818181818181818,
+      "diff": 0.6740902065477027,
+      "threshold": 0.3447730785443305,
+      "n_ep_hack": 15,
+      "n_ep_nonhack": 43
+    },
+    {
+      "goal_feat": 132,
+      "hack_feat": 1,
+      "p_nonhack": 0.0,
+      "p_hack": 0.6666666666666666,
+      "diff": 0.6666666666666666,
+      "threshold": 0.3333333333333333,
+      "n_ep_hack": 6,
+      "n_ep_nonhack": 39
+    },
+    {
+      "goal_feat": 311,
+      "hack_feat": 179,
+      "p_nonhack": 0.0046439628482972135,
+      "p_hack": 0.5454545454545454,
+      "diff": 0.5408105826062481,
+      "threshold": 0.2750492541514213,
+      "n_ep_hack": 20,
+      "n_ep_nonhack": 55
+    },
+    {
+      "goal_feat": 161,
+      "hack_feat": 21,
+      "p_nonhack": 0.017001545595054096,
+      "p_hack": 0.5454545454545454,
+      "diff": 0.5284529998594913,
+      "threshold": 0.28122804552479974,
+      "n_ep_hack": 11,
+      "n_ep_nonhack": 46
+    },
+    {
+      "goal_feat": 311,
+      "hack_feat": 60,
+      "p_nonhack": 0.015479876160990712,
+      "p_hack": 0.5,
+      "diff": 0.4845201238390093,
+      "threshold": 0.25773993808049533,
+      "n_ep_hack": 20,
+      "n_ep_nonhack": 55
+    },
+    {
+      "goal_feat": 311,
+      "hack_feat": 354,
+      "p_nonhack": 0.018575851393188854,
+      "p_hack": 0.5,
+      "diff": 0.48142414860681115,
+      "threshold": 0.2592879256965944,
+      "n_ep_hack": 20,
+      "n_ep_nonhack": 55
+    },
+    {
+      "goal_feat": 161,
+      "hack_feat": 179,
+      "p_nonhack": 0.0030911901081916537,
+      "p_hack": 0.45454545454545453,
+      "diff": 0.4514542644372629,
+      "threshold": 0.2288183223268231,
+      "n_ep_hack": 11,
+      "n_ep_nonhack": 46
+    },
+    {
+      "goal_feat": 161,
+      "hack_feat": 354,
+      "p_nonhack": 0.015455950540958269,
+      "p_hack": 0.45454545454545453,
+      "diff": 0.43908950400449626,
+      "threshold": 0.2350007025432064,
+      "n_ep_hack": 11,
+      "n_ep_nonhack": 46
+    },
+    {
+      "goal_feat": 311,
+      "hack_feat": 296,
+      "p_nonhack": 0.021671826625386997,
+      "p_hack": 0.45454545454545453,
+      "diff": 0.43287362792006756,
+      "threshold": 0.23810864058542078,
+      "n_ep_hack": 20,
+      "n_ep_nonhack": 55
+    }
+  ],
+  "routing_edges_h2g": [
+    {
+      "hack_feat": 179,
+      "goal_feat": 132,
+      "p_nonhack": 0.16279069767441862,
+      "p_hack": 0.0,
+      "diff": 0.16279069767441862,
+      "threshold": 0.9372093023255813,
+      "n_ep_hack": 30,
+      "n_ep_nonhack": 29
+    },
+    {
+      "hack_feat": 350,
+      "goal_feat": 311,
+      "p_nonhack": 0.2,
+      "p_hack": 0.041666666666666664,
+      "diff": 0.15833333333333335,
+      "threshold": 0.9,
+      "n_ep_hack": 41,
+      "n_ep_nonhack": 29
+    }
+  ]
 }

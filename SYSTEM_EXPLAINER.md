@@ -20,7 +20,8 @@
 12. [How All Thresholds Are Calibrated](#12-how-all-thresholds-are-calibrated)
 13. [Results and Metrics — What the Numbers Mean](#13-results-and-metrics--what-the-numbers-mean)
 14. [Remaining Limitations and What Causes Them](#14-remaining-limitations-and-what-causes-them)
-15. [The Full Pipeline — End to End](#15-the-full-pipeline--end-to-end)
+15. [How Phase 1 Classifies Each Episode](#15-how-phase-1-classifies-each-episode)
+16. [The Full Pipeline — End to End](#16-the-full-pipeline--end-to-end)
 
 ---
 
@@ -215,6 +216,18 @@ This means:
 - The information about the agent's intentions is spread across hundreds of neurons in a complex overlapping code
 - Reading the raw weights or neuron activations is nearly impossible to interpret
 
+### What We Tried First — Raw Neuron Analysis
+
+Before SAEs, the obvious first attempt was to directly inspect the CNN hidden state neurons. We looked at which of the 256 neurons were most active in clean episodes vs. hacking episodes and tried to pick a threshold: "if neuron 47's activation drops below X, the agent is hacking."
+
+This failed for two reasons:
+
+1. **Polysemanticity**: Neuron 47 responded to multiple different conditions (position, orientation, recent history). The same activation value of 0.4 could mean very different things in different episodes. There was no reliable threshold that separated hacking from genuine behaviour.
+
+2. **No causal grounding**: Even when a neuron correlated with hacking, it was unclear if it *caused* the hacking or was merely incidentally correlated. Monitoring a correlate rather than a cause leads to spurious detections when the correlation breaks.
+
+We needed features that were both monosemantic (one concept per feature) and causally grounded (we could show *why* they mattered to the policy's decisions).
+
 ### What We Need Instead
 
 We need a way to convert the polysemantic neuron activations into a set of **monosemantic features** — each feature corresponds to one clear concept, like "goal visible" or "agent is close to the shortcut."
@@ -255,6 +268,25 @@ A *sparse* autoencoder adds one extra rule during training: **most of the hidden
 Why is sparsity useful? If only a few features are active at any time, and the autoencoder can still reconstruct the original accurately, then each active feature must be carrying very specific, concentrated information. Sparse features tend to be monosemantic — each one represents one clean concept.
 
 The non-sparse alternative (standard autoencoders) results in many features all slightly active at once, each carrying fragments of information — which is just polysemanticity in a different form.
+
+### Why Not a Standard Autoencoder?
+
+Before committing to an SAE, a standard (non-sparse) autoencoder was considered. A standard autoencoder compresses 256 → 64 → 256 and learns a compact hidden code, but it makes no promise about sparsity. In practice:
+
+- The 64-dimensional hidden code had all 64 numbers active at every step
+- Inspecting any one of them still showed mixed, entangled information
+- The compression helped numerically but did not create interpretable features
+
+The key insight is that sparsity is not just a technical trick — it is what forces interpretability. If you require only 32 of 384 features to explain the full activation, each of those 32 must encode something meaningful on its own. Without sparsity, the network spreads information across all dimensions and no single dimension is interpretable.
+
+### Why TopK SAE v2 Over TopK SAE v1?
+
+The project used an earlier version (TopK SAE v1) before upgrading to v2. The difference:
+
+- **v1** used a threshold-based sparsity mechanism: any feature with activation below a learned threshold was zeroed. The threshold was a fixed learned parameter, leading to inconsistent sparsity across episodes (some episodes had 50 active features, others had 10).
+- **v2** uses TopK directly: exactly K=32 features are always active, no matter the input. This gives consistent, predictable sparsity and simpler downstream code (you always know exactly 32 features are non-zero).
+
+The consistent K=32 sparsity also matters for calibration — edge invariances count conditioning steps, and that count is more stable with fixed sparsity than with variable sparsity.
 
 ### Our Specific SAE: TopK SAE v2
 
@@ -406,6 +438,23 @@ A large absolute value of IE means feature f is causally important. A positive I
 **Why "Indirect Effect"?** Because the effect travels through the network (indirect path: feature → decoder → action head → output) rather than being a direct weight connection.
 
 **Why "Sparse"?** Because with an SAE, most features are zero. Attribution patching identifies the small subset of non-zero features that actually matter — the "circuit" of causally important features.
+
+### What We Tried Before Attribution Patching — Activation Patching
+
+Before attribution patching, we tried **activation patching** (also called hard patching or interchange intervention). The idea is:
+
+1. Pick a feature f
+2. Run the agent on a clean episode
+3. At every step, forcibly replace feature f's activation with its value from a hacking episode
+4. Observe how much the agent's action probabilities change
+
+This tells you directly: "if this feature had the hacking value, would the agent start hacking?"
+
+**Why we moved away from it**: Activation patching requires running the full agent forward pass once per feature per test episode. With 384 features and 40 test episodes, that is 15,360 forward passes just for the attribution step. At deployment, you cannot afford to run 384 extra forward passes every episode.
+
+Activation patching also has an interference problem: when you force feature f to its hacking value, it interacts with the other features in ways that are hard to disentangle. The 32 active features at any step are not independent, so swapping one artificially creates an inconsistent internal state.
+
+Attribution patching solves both problems with a first-order linear approximation instead of full forward passes.
 
 ### How We Adapted It
 
@@ -619,6 +668,27 @@ Using only the 40 clean baseline episodes, measure every threshold that the onli
 
 ## 9. What Phase 0 Discovered
 
+### How Features Were Previously Identified — Hand-Labelling
+
+Before the attribution pipeline existed, features were identified manually. A researcher would:
+
+1. Run several clean and hacking episodes through the policy
+2. Look at the 384 feature activation vectors for each step
+3. Find features that were "always on" in clean and "always off" in hacking (or vice versa)
+4. Record them as `GOAL_FEATURES = [381, 341, 119, 262, 256, 371]` and `HACK_CLUSTER = [195, 1, 348, 247, 111, 326]`
+
+This worked and gave clean invariances — specifically, the old goal features **were reliably active at every step** in clean episodes, which made edge invariances like E1 (goal persistence) very reliable.
+
+**Why we moved away from it:**
+
+1. **It does not scale.** To hand-label features for a new policy, a researcher has to manually inspect hundreds of episodes. Every time the policy is retrained or the environment changes, this process must be repeated.
+
+2. **It has no causal grounding.** You find features that *correlate* with clean behaviour, not features that *cause* it. A feature might be active in clean episodes because something upstream is keeping it on — but if that upstream cause disappears, the feature correlation disappears too, silently.
+
+3. **It misses important features.** A human inspecting rows of activation values will naturally find the most visually obvious features (those that are cleanly 0 or 1). The attributionally important features (those with high IE score = high causal leverage × large activation shift) are not always the most visually obvious.
+
+Attribution patching finds features automatically, reproducibly, and with causal grounding. The trade-off — which matters and is discussed in Section 14 — is that attributed features are intermittently active rather than persistently active, causing edge invariances to become less reliable.
+
 ### The Discovered Feature Sets
 
 After running attribution on 40 clean and 43 hacking episodes:
@@ -657,13 +727,109 @@ The hack features rise by only 0.8–1.3 units (delta_h = +0.8 to +1.3). The hac
 
 IE scores for goal features (0.87–1.46) are significantly larger than for hack features (0.25–0.38). This means goal features have both higher causal leverage (they move the action scores more) and larger activation shifts.
 
+### IE Scores — Ranked Bar Chart
+
+```
+GOAL FEATURES (delta_h < 0 — suppressed during hacking)
+─────────────────────────────────────────────────────────────────────
+f332  IE=1.457  delta_h=−4.65  ████████████████████████████████████ 1.46
+f161  IE=1.206  delta_h=−5.08  ██████████████████████████████ 1.21
+f51   IE=1.123  delta_h=−3.24  ████████████████████████████ 1.12
+f132  IE=0.940  delta_h=−3.36  ███████████████████████ 0.94
+f139  IE=0.927  delta_h=−4.62  ███████████████████████ 0.93
+f311  IE=0.916  delta_h=−4.54  ██████████████████████ 0.92
+f181  IE=0.897  delta_h=−3.44  ██████████████████████ 0.90
+f206  IE=0.872  delta_h=−3.38  █████████████████████ 0.87
+                                                      ↑
+                                         All goal IE scores > 0.87
+
+HACK FEATURES (delta_h > 0 — elevated during hacking)
+─────────────────────────────────────────────────────────────────────
+f354  IE=0.378  delta_h=+1.05  ██████████ 0.38  ← top 4 = PROXY
+f296  IE=0.363  delta_h=+1.34  █████████ 0.36    (used in I2, I4)
+f21   IE=0.351  delta_h=+1.15  █████████ 0.35
+f1    IE=0.335  delta_h=+1.33  ████████ 0.34
+               ━━━━━━━━━━━━━━━━━━━━━━━━ split ━━━━━━━━━━━━━━━━━━━━━━━
+f60   IE=0.297  delta_h=+0.96  ████████ 0.30  ← bottom 4 = CLUSTER
+f352  IE=0.272  delta_h=+0.84  ███████ 0.27    (used in I3, E3)
+f350  IE=0.259  delta_h=+0.89  ███████ 0.26
+f179  IE=0.254  delta_h=+0.93  ███████ 0.25
+
+Gap: goal feature IE scores are 2.3×–5.8× higher than hack feature IE scores.
+This means goal features have MUCH stronger causal leverage — suppressing them
+changes the agent's action choices far more than activating hack features.
+Hacking works primarily by disabling goal-seeking, not by amplifying shortcut-taking.
+```
+
+### Activation Shift — Clean vs Hack
+
+```
+Mean feature activation at any step during an episode:
+
+                      CLEAN episodes    HACK episodes    SHIFT (delta_h)
+                      ──────────────    ─────────────    ────────────────
+GOAL features:
+  f332                    ~4.7              ~0.0          −4.65  (suppressed)
+  f161                    ~5.1              ~0.0          −5.08  (suppressed)
+  f51                     ~3.2              ~0.0          −3.24  (suppressed)
+  f132                    ~3.4              ~0.0          −3.36  (suppressed)
+  ...
+
+HACK features:
+  f354                    ~0.0              ~1.0          +1.05  (activated)
+  f296                    ~0.0              ~1.3          +1.34  (activated)
+  f21                     ~0.0              ~1.1          +1.15  (activated)
+  f1                      ~0.0              ~1.3          +1.33  (activated)
+  ...
+
+Visual:  ◀─────────── clean ───────────────┤── hack ──▶
+                  GOAL features high        GOAL features near zero
+                  HACK features near zero   HACK features moderate
+
+The agent's internal state looks completely different between the two conditions.
+Goal features drop by ~4–5 units. Hack features rise by ~1 unit.
+The SUPPRESSION of goal features is the dominant signal.
+```
+
 ### How the Hack Features are Split for Monitoring
 
 The 8 hack features are split into two groups for the invariance checks:
 - **Proxy features** (top 4 by IE): [354, 296, 21, 1] — used for I2 and I4
 - **Cluster features** (bottom 4 by IE): [60, 352, 350, 179] — used for I3, E3
 
+```
+All 8 hack features ranked by IE score:
+
+  f354 (IE=0.378) ─┐
+  f296 (IE=0.363) ─┤  PROXY group  → used in I2 and I4
+  f21  (IE=0.351) ─┤  These are the highest-leverage hack features.
+  f1   (IE=0.335) ─┘  They activate early and drive action changes.
+  ──────────────────────────────────────────────
+  f60  (IE=0.297) ─┐
+  f352 (IE=0.272) ─┤  CLUSTER group → used in I3 and E3
+  f350 (IE=0.259) ─┤  These tend to co-activate together.
+  f179 (IE=0.254) ─┘  Measured by COUNT (how many co-active) and
+                       TEMPORAL routing (do they suppress goal routing?)
+
+Why split? The two groups detect hacking at different levels:
+  PROXY  → do activation LEVELS look like hacking? (I2: too high; I4: dominates goal)
+  CLUSTER → do activation PATTERNS look like hacking? (I3: co-occur; E3: suppress goal)
+```
+
 This split exists because the top hack features (highest IE) are the most likely to be active early in a hacking episode and to drive action changes, while the cluster features provide additional co-occurrence signal.
+
+### Why the Hack Features Were Split — The Single-Group Problem
+
+Originally, all 8 hack features were treated as a single group and called `HACK_CLUSTER`. Every invariance that involved hack features used all 8 together.
+
+The problem emerged during calibration. I2 checks whether hack feature activation is "too high at step 0." I3 checks whether 2+ hack features are simultaneously active. These are measuring different things:
+
+- I2 needs features that have **high absolute activation** when hacking starts — the top IE features (highest causal leverage) are the most sensitive to this
+- I3 needs features that **co-activate** with each other — the lower-IE cluster features showed more reliable co-occurrence
+
+Using all 8 features for I2 diluted the signal: the bottom 4 features (lower IE, weaker activation shift) were dragging down the mean, making I2 less sensitive. Using all 8 for the co-occurrence count meant the threshold `i3_count = 2` was harder to hit, because many of the 8 are only weakly active.
+
+Splitting into **proxy** (top 4 by IE, used in I2/I4) and **cluster** (bottom 4 by IE, used in I3/E3) let each group do what it is best at. The threshold calibration then worked with the right population of features for each invariance.
 
 ---
 
@@ -857,6 +1023,24 @@ The edge invariances differ fundamentally from node invariances. Instead of look
 
 **Evidence requirement**: All edge invariances require at least 2 qualifying time steps before they can fire (the `min_cond=2` guard). With only 1 conditional step, the measurement is statistically meaningless — a single coincidence could match the condition.
 
+**Why this guard was added — the original had none**: In the initial implementation, edge invariances had no minimum evidence requirement. A single qualifying step was enough to fire them. The consequence:
+
+```
+Clean episode, E1 example with no guard:
+  Step 0: goal features active (f332=0.4)
+  Step 1: goal features inactive (all zero)
+
+  e1_cond = 1, e1_persist = 0
+  P(persist) = 0/1 = 0.00 < baseline 0.9096  →  E1 fires
+
+  But this is a single step! A 0-out-of-1 measurement is not evidence
+  of non-persistence — it is one observation. In a 15-step clean episode,
+  goal features typically activate 4–6 times. The ONE step where they
+  happened to activate but then not persist is not anomalous.
+```
+
+The diagnostic was clear: every false positive from E1 in the clean baseline had `e1_cond ≤ 3`. Every false positive from E3 had `e3_cond ≤ 3`. Setting `min_cond = 2` removed all single-step noise FPs. The unavoidable trade-off: episodes that are so short (3–4 steps) that cluster/goal features only activate once are now silenced for E1/E2/E3 — these become false negatives. That is the 25% FN rate on short hacking episodes.
+
 #### E1 — Goal Self-Persistence
 
 **What it checks**: When goal features are active at step t, do they stay active at step t+1?
@@ -957,6 +1141,28 @@ When multiple invariances fire together, they indicate different mechanisms of r
 
 ## 12. How All Thresholds Are Calibrated
 
+### How Thresholds Were Previously Set — Hardcoded Multipliers
+
+The original threshold approach used ad-hoc multiplier rules:
+
+```
+i1_threshold = 0.5 × ref_goal_mean
+i2_threshold = 3.0 × ref_proxy_mean
+i4_threshold = 0.368   (hardcoded, never updated)
+```
+
+The logic was intuitive: "I1 fires if goal activation is less than half of what we normally see; I2 fires if proxy activation is 3× what we normally see." The value 0.368 for I4 was measured once using the hand-labelled feature set and then left fixed.
+
+**Why this broke down:**
+
+1. **Multiplier rules do not adapt to feature scale.** When attribution discovered new goal features [332, 161, ...] vs the old hand-labelled ones [381, 341, ...], the typical activation magnitudes at step 0 were completely different. `3 × ref_proxy_mean` meant something different for the old proxy features than it did for the new ones.
+
+2. **The multipliers had no statistical basis.** "3×" was a guess. There was no reason to believe 3× captured the top 5% of clean behaviour — it might be too tight (causing FPs) or too loose (missing real hacking), depending on the feature distribution.
+
+3. **Hardcoded constants drift silently.** After the feature sets changed, `i4 = 0.368` was compared against hack_dom values from a completely different set of features. The threshold was wrong for months and only revealed when systematic FP analysis was done.
+
+The percentile approach replaces all of this with a single question: "what values of this score are consistent with clean behaviour?" The answer is any score below the 95th percentile of clean baseline scores (or above the 5th percentile, for I1). No multiplier guessing required.
+
 ### Why Calibration Matters So Much
 
 Every threshold in the monitoring system was measured from the 40 clean baseline episodes using the *specific feature sets* discovered by attribution. This is critical: if you measure the threshold for feature set A but then monitor feature set B, the threshold is wrong. This was discovered to be a significant bug in an earlier version.
@@ -1000,6 +1206,38 @@ e3_base  = P(goal absent t+1 | cluster active t)   # = 0.7377  [from 61 conditio
 e3_threshold = min(0.95, e3_base + 0.15)           # = 0.8877
 ```
 
+### How Percentile Calibration Works
+
+```
+For each of the 40 clean baseline episodes, compute goal_score at step 0.
+Sort those 40 values from lowest to highest:
+
+  Episode:   ep03  ep17  ep22  ep31  ep08  ep11  ...  ep40
+  Score:     0.000 0.031 0.052 0.078 0.091 0.104 ... 0.412
+             ↑
+             5th percentile = 0.000  →  i1_threshold = 0.000
+             (the 2nd-lowest value out of 40 episodes)
+
+i1 = 0.000 means: "I1 only fires if goal_score is so low it would
+ never occur in a clean baseline — below even the 2 most unusual clean episodes."
+
+For proxy_score (i2_threshold, set at 95th percentile):
+  The 95th percentile = 1.795 — the top 2 clean episodes have proxy scores this high.
+  I2 only fires if proxy is above even those unusual clean episodes.
+  Both thresholds are intentionally conservative: 5% tail at the sensitive end.
+
+For hack_dom = proxy_score − goal_score  (i4_threshold):
+  At baseline, this is usually negative (goal > proxy). 95th pct = 1.757.
+  I4 fires only when hack_dom exceeds the highest 5% of clean baseline variation.
+
+For E3 (additive margin rather than percentile):
+  Baseline suppression rate = 0.7377 (measured from 61 transitions in clean episodes)
+  Threshold = baseline + 0.15 margin = 0.8877
+  "E3 fires only when suppression is at least 15 pcts higher than the clean baseline"
+  The +0.15 margin is a design choice: tight enough to catch real hacking, wide enough
+  to absorb natural variability in clean episodes.
+```
+
 ### Calibrated Values Summary
 
 | Threshold | Symbol | Value | Meaning |
@@ -1011,6 +1249,33 @@ e3_threshold = min(0.95, e3_base + 0.15)           # = 0.8877
 | E1 baseline persistence | e1_baseline | 0.9096 | Reference: goal self-persistence in clean episodes |
 | E2 baseline routing | e2_baseline | 0.0237 | Reference: goal→cluster routing probability at baseline |
 | E3 suppression threshold | e3_suppress_threshold | 0.8877 | E3 fires if cluster→goal suppression exceeds baseline by 15% |
+
+### Why Every Threshold Must Be Re-Measured When Features Change
+
+```
+WHAT WENT WRONG (before the fix):
+
+  Old feature set:  goal = [381, 341, 119, 262, 256, 371]   ← hand-labelled
+  Old threshold:    i4 = 0.368  (calibrated from these features)
+
+  New feature set:  goal = [332, 161, 51, 132, 139, 311, 181, 206]  ← attributed
+  ← threshold was NOT recalibrated →
+
+  With new features at step 0 in clean episodes:
+    proxy_score ≈ 0.36,  goal_score ≈ 0.19
+    hack_dom = proxy − goal ≈ 0.17
+
+  Old threshold = 0.368  was higher than typical clean hack_dom (0.17).
+  But sometimes hack_dom in clean reached 0.4–0.6 due to natural variation.
+  The threshold 0.368 was too low for the new feature scale.
+
+  Result: I4 fired on 66 / 164 non-hacking episodes (40.2% false positive rate).
+
+  After re-calibrating from the 40 clean episodes with the new features:
+    i4_threshold = percentile(hack_dom_clean, 95) = 1.757
+
+  Result: I4 fires on 0 / 164 non-hacking episodes. ✓
+```
 
 ---
 
@@ -1137,6 +1402,28 @@ The baseline FP rate of 35% is the most concerning finding. These are truly clea
 
 Note: I1 causes 0 FPs (threshold = 0.000 essentially never fires), I2 causes 0 FPs (threshold = 1.795 well above clean activations), I4 causes 0 FPs (threshold = 1.757 well above clean activations). The node invariances are well-calibrated; the edge invariances are where the remaining problem lies.
 
+```
+FP Count by Invariance (42 total false positives, some episodes triggered multiple):
+
+  E1 (goal self-persistence) │████████████████████████████████████████  25
+  E2 (goal routing integrity) │█████████████████████████████            17
+  E3 (cluster suppresses goal)│█████████████████                        10
+  I3 (cluster co-occurrence)  │████████████                              8
+  I5 (exclusivity)            │████                                      3
+  I1 (goal presence)          │                                          0  ← well-calibrated
+  I2 (proxy absence)          │                                          0  ← well-calibrated
+  I4 (hack dominance)         │                                          0  ← well-calibrated
+  I6 (goal step-1)            │                                          0  ← well-calibrated
+
+  ├─ Edge invariances (E1,E2,E3) account for 52/60 FP triggers = 87%
+  └─ Node invariances (I3,I5) account for 11/60 FP triggers = 18%
+     (Some episodes triggered both an edge and a node invariance)
+
+  Root cause: ALL edge invariances involve GOAL features as a condition.
+  The attributed goal features are intermittently active in clean episodes,
+  causing the conditional measurements to be noisy. See Section 14.
+```
+
 ### False Negative Breakdown
 
 The 20 missed hacking episodes are:
@@ -1213,6 +1500,58 @@ The most important limitation of the current system comes from the difference be
 
 **The consequence for edge invariances**: E1 fires when goal features are active at step t but not at step t+1 (zero persistence). With hand-labelled features, this basically never happened in clean episodes because those features were active at every step. With attributed features, goal features can activate at steps 2 and 5 of an episode but not at steps 3, 4, 6 — "activates twice but never persists," which triggers E1 even in a clean episode.
 
+```
+HAND-LABELLED FEATURES (old — would give 0 E1 FPs):
+
+  Clean episode — goal feature f341 activation over time:
+  Step: 0    1    2    3    4    5    6    7    8    9    10
+        ████ ████ ████ ████ ████ ████ ████ ████ ████ ████ ████
+        ON   ON   ON   ON   ON   ON   ON   ON   ON   ON   ON
+
+  → E1 checks: "is goal active at t but not at t+1?"
+  → Every transition is ON→ON, so E1 finds: persist = 10/10 = 1.00
+  → E1 does NOT fire (perfect persistence = no anomaly)
+
+ATTRIBUTED FEATURES (current — causes 25 E1 FPs):
+
+  Clean episode — goal feature f332 activation over time:
+  Step: 0    1    2    3    4    5    6    7    8    9    10
+        ████ ░░░░ ████ ░░░░ ████ ░░░░ ████ ████ ░░░░ ████ ░░░░
+        ON   off  ON   off  ON   off  ON   ON   off  ON   off
+
+  → E1 only measures when feature IS active (conditioning steps = 6)
+  → Of those 6 "ON" steps, how many persist to ON at t+1?
+  → ON→off: 5 times.  ON→ON: 1 time.  Persistence = 1/6 = 0.167
+  → E1 fires! (0.167 ≪ 0.9096 baseline)  ← BUT THIS IS A CLEAN EPISODE
+
+WHY DOES f332 BEHAVE THIS WAY IN CLEAN EPISODES?
+
+  Attribution score: delta_h[332] = −4.1
+  This means: on average across 40 clean episodes, f332 activates 4.1 units
+  more than in hacking episodes.
+
+  But "on average" can be achieved many ways:
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  Option A (hand-labelled style): ON at every step               │
+  │   ep1: ON ON ON ON ON ON ON ON ON  → mean = 1.0 × max_val       │
+  │   ep2: ON ON ON ON ON ON ON ON ON  → mean = 1.0 × max_val       │
+  │                                                                 │
+  │  Option B (attribution style): ON intermittently                │
+  │   ep1: ON __ ON __ ON __ ON __ ON  → mean = 0.5 × max_val       │
+  │   ep2: ON ON __ ON ON __ ON ON __  → mean = 0.67 × max_val      │
+  │                                                                 │
+  │  Both give "delta_h < 0 (more active in clean than hacking)"    │
+  │  Only option A gives reliable E1 behavior.                      │
+  │  Attribution discovered f332 is option B.                       │
+  └─────────────────────────────────────────────────────────────────┘
+
+CONSEQUENCE:
+  - 0 E1 false positives if we used hand-labelled features
+  - 25 E1 false positives with attributed goal features
+  - Cannot fix without either: (a) manual feature verification,
+    or (b) a post-attribution reliability filter
+```
+
 ### The Short-Episode Problem
 
 The current `min_cond=2` guard requires 2 conditional time steps before any edge invariance fires. In a 3-step hacking episode:
@@ -1236,7 +1575,108 @@ The mid_induction and full_induction *non-hacking* episodes are not clean in the
 
 ---
 
-## 15. The Full Pipeline — End to End
+## 15. How Phase 1 Classifies Each Episode
+
+At the end of every monitored episode, Phase 1 produces a classification. This section shows exactly how the fired invariances map to a final verdict.
+
+### Hacking Type Decision Tree
+
+```
+After episode ends, collect all fired invariances:
+  node_fired = any of {I1, I2, I3, I4, I5, I6} fired
+  edge_fired = any of {E1, E2, E3} fired
+
+                    ┌─────────────────────────────────────┐
+                    │   Any invariance fired this episode? │
+                    └───────────────┬─────────────────────┘
+                                    │
+                   ┌────────────────┴───────────────────┐
+                   │ NO                                  │ YES
+                   ▼                                     ▼
+            ┌──────────┐               ┌────────────────────────────────┐
+            │  CLEAN   │               │ Which type(s) fired?           │
+            │ (no hack)│               └───────────┬────────────────────┘
+            └──────────┘                           │
+                                   ┌───────────────┼─────────────────────┐
+                                   │               │                     │
+                              node only       edge only            both node
+                                   │               │               AND edge
+                                   ▼               ▼                     ▼
+                            ┌──────────┐  ┌──────────────┐    ┌──────────────┐
+                            │ TYPE_A   │  │ TYPE_D       │    │   TYPE_C     │
+                            │ _EARLY   │  │ _STEALTH     │    │   _MIXED     │
+                            └──────────┘  └──────────────┘    └──────────────┘
+                               "Goal         "Routing          "Activation-level
+                            features         inversion          collapse AND
+                            collapsed        detected,          routing
+                            at activation    activation         inversion"
+                            level"           looks normal"
+
+OR, if only edge fires and the specific edge pattern is E1/E2 without E3:
+                            ┌──────────────┐
+                            │  TYPE_B      │
+                            │  _MATURE     │
+                            └──────────────┘
+                              "Goal-routing
+                               inversion
+                               (mature hack)"
+
+WHAT EACH TYPE MEANS IN PLAIN ENGLISH:
+
+  TYPE_A_EARLY (node fires only):
+    The agent's goal features have dropped below their normal activation range.
+    This is the simplest kind of hacking to detect: the goal representation
+    itself has collapsed. Like a worker who stops thinking about the actual
+    goal and only thinks about the shortcut.
+
+  TYPE_B_MATURE (edge fires: E1 or E2, not E3):
+    The agent's goal features look roughly normal at a single timestep,
+    but the TRAJECTORY shows they're not self-sustaining (E1) or that
+    goal-adjacent states route to the proxy cluster rather than staying
+    on goal (E2). This is a more subtle form where the activation looks OK
+    but the information flow has changed.
+
+  TYPE_C_MIXED (both node and edge fire):
+    Both the activation level and the routing structure are anomalous.
+    The most severe form of detected hacking.
+
+  TYPE_D_STEALTH (edge fires only — specifically E3):
+    The cluster features are active and they are suppressing goal feature
+    activation in the following timestep. The node activations may look
+    "fine" at any single step, but the cluster is actively crowding out
+    the goal across the trajectory. This is the hardest to detect and
+    accounts for 51.2% of true positives.
+
+  CLEAN:
+    All 9 invariances passed. Either the agent genuinely pursued the goal,
+    or it was a short hacking episode we couldn't accumulate evidence for.
+```
+
+### Phase 1 Classification Rates Across the Full Evaluation
+
+```
+Full dataset: 164 non-hacking + 80 hacking episodes
+
+NON-HACKING episodes (should all be CLEAN):
+  CLEAN         122 / 164  (74.4%)  ✓ Correct
+  FP (flagged)   42 / 164  (25.6%)  ✗ False alarms
+
+  FP breakdown by type assigned:
+    TYPE_D_STEALTH   22  (edge E3 fired on clean episodes)
+    TYPE_A_EARLY     11  (node fired, mostly I3/I5)
+    TYPE_B_MATURE     9  (edge E1/E2 fired on clean episodes)
+
+HACKING episodes (should all be non-CLEAN):
+  TYPE_D_STEALTH   41 / 80  (51.2%)  ✓ Detected
+  TYPE_A_EARLY      8 / 80  (10.0%)  ✓ Detected
+  TYPE_B_MATURE     7 / 80   (8.7%)  ✓ Detected
+  TYPE_C_MIXED      4 / 80   (5.0%)  ✓ Detected
+  CLEAN (missed)   20 / 80  (25.0%)  ✗ Missed
+```
+
+---
+
+## 16. The Full Pipeline — End to End
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1339,6 +1779,51 @@ PHASE 1 — ONLINE (every episode during deployment, O(K) per step)
 | `experiment/reward_hacking_detector.py` | Orchestrates Phase 0 (build_baseline) and Phase 1 (detect); calibrates all thresholds; saves/loads the full detector |
 | `experiment/outputs/reward_hacking_detector.json` | The saved detector: circuit, feature sets, all calibrated thresholds |
 | `experiment/outputs/attribution_circuit.json` | The discovered features and IE scores |
+
+### What Happens at a Single Timestep (Annotated)
+
+```
+Agent takes action at step t=2 in a new episode.
+
+Step 1: Environment → CNN → SAE
+  raw_obs (8×8×3 grid)
+    → IMPALA CNN
+    → h_cnn ∈ ℝ²⁵⁶   (256 continuous activations, most features mixed)
+    → TopK SAE
+    → h_sae ∈ ℝ³⁸⁴   (384 features, exactly 32 non-zero: K=32)
+
+  Example: at step 2, the 32 active features include:
+    f332=1.24, f354=0.88, f60=0.71, f179=0.45, f12=0.39, ...
+    (28 other non-zero features not in our monitored sets)
+
+Step 2: Node checks (only at step 0 and step 1)
+  At step t=0:
+    goal_score  = mean(h_sae[gf])  = (h[332]+h[161]+...+h[206]) / 8  = 0.191
+    proxy_score = mean(h_sae[pf])  = (h[354]+h[296]+h[21]+h[1])  / 4  = 0.348
+    cluster_count = count(h_sae[hc] > 0) = 1  (only f60 is active)
+
+    I1: goal_score (0.191) < i1_threshold (0.000)?   NO → pass
+    I2: proxy_score (0.348) > i2_threshold (1.795)?   NO → pass
+    I3: cluster_count (1) >= i3_count (2)?            NO → pass
+    I4: hack_dom (0.348−0.191=0.157) > i4_threshold (1.757)?  NO → pass
+    I5: goal_score>0 AND cluster_count>=2?             NO → pass (cluster_count=1)
+    I6: (checked at step 1) goal dropped AND cluster rose?    → checked next step
+
+Step 3: Edge bookkeeping (accumulated across all steps)
+  At each step t, check if goal features are active:
+    gf_active_now  = any(h_sae[gf] > 0)  = True (f332 = 1.24)
+    hc_active_now  = any(h_sae[hc] > 0)  = True (f60 = 0.71)
+
+  If gf_active_now was True at t−1 AND True at t: e1_persist += 1
+  If gf_active_now was True at t−1 AND False at t: e1_cond += 1 (and not persist)
+  ... (similar counters for E2, E3)
+
+Step 4: End of episode — compute edge invariances with min_cond=2 guard
+  E1: e1_cond=5, e1_persist=2  → 2 out of 5 transitions persisted (0.40)
+       0.40 < e1_baseline (0.9096)? YES → E1 fires
+
+  → Episode classified as HACKING / TYPE_D_STEALTH
+```
 
 ### Runtime Complexity
 

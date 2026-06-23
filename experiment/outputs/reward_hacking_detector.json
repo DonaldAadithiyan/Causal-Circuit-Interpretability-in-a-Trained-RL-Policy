@@ -1180,5 +1180,12 @@
   "n_clean": 40,
   "n_hack": 43,
   "ref_goal_mean": 0.18679900467395782,
-  "ref_proxy_mean": 0.3584439158439636
+  "ref_proxy_mean": 0.3584439158439636,
+  "i1_threshold": 0.0,
+  "i2_threshold": 1.7945986986160278,
+  "i4_threshold": 1.757000207901001,
+  "i3_count": 2,
+  "e1_baseline_p_persist": 0.9096296296161537,
+  "e2_baseline_p_route_cluster": 0.02370370370335254,
+  "e3_suppress_threshold": 0.8877049179118517
 }

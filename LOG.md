@@ -1,6 +1,21 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [18:27] [VALIDATION] All 5 tests complete
+- T1 attribution value: A(IE)=0.667, B(|dh|)=0.607, C(random)=0.425+-0.077; dF1(A-B)=0.060 (just over 0.05 bar), A-meanC=0.242. Modest real causal grounding.
+- T2 confound: 2A length ratio=90.8 (heavy length confound); 2C goal corr w/ goal-dist=-0.19 (weak real signal); hack corr w/ shortcut-dist=+0.06 (none). Both reasons.
+- T3 ablation: E2 biggest contributor (dF1=-0.149); E1 NET HARMFUL (dF1=+0.061 -> F1 0.727); I1/I2/I5/I6 neutral. node-only 0.355 vs edge-only 0.619.
+- T4 positional: f132->hack edges P(near)=0.42 vs P(far)=0.00 -> largely positional artifact; suppression edges anti-positional (real).
+- T5 persistence: all 8 goal feats ~0.70; IE vs persistence corr=-0.01 (uncorrelated); >0.7 keeps 5 -> F1 0.674, E1 FP 25->18. Small help.
+- Harness self-check reproduces 64/48/16/116 exactly. VALIDATION_REPORT.md written.
+
+## [18:18] [VALIDATION] Baseline reproduced + system understood
+- Two feature labelings exist: hand-labelled [381,..] (measure_invariances main, F1=0.528) vs ATTRIBUTED [332,..] (reward_hacking_detector, F1=0.667).
+- Canonical system = reward_hacking_detector._run_validation(): TP=64 FP=48 FN=16 TN=116, P=0.571 R=0.800 F1=0.667 — REPRODUCED EXACTLY.
+- 10-invariance OR set = {I1-I6, E1,E2,E3,E5} (E4 excluded). Flagged if any fires.
+- Clean baseline calib = 40 stage==baseline episodes; edges from build_feature_transition_graph (hack=outcome shortcut, nonhack=else, h.max<=20).
+- Proceeding with 5 validation tests against this verified baseline.
+
 ## [09:58] [MONITOR] Step 120,000
 hack_rate=1.00  frac_circuit=0.00  M3=0.90  M4=0.00
 

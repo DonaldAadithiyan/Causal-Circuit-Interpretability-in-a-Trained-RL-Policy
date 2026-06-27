@@ -1,6 +1,15 @@
 # Experiment Log
 *Newest entries at top.*
 
+## [10:17] [BOATRACE] Generalization test on real DeepMind boat_race
+- Ran the REAL ai_safety_gridworlds boat_race (vendored; patched pycolab for modern numpy).
+- Labels objective via hidden reward: clean lap=+22.7 vs hack circle=-5.5 (observed reward identical).
+- Full pipeline applied faithfully: PPO(256)->SAE(256->384,190 dead)->C=W_action@W_dec, IE attribution->10 invariances.
+- RESULT (clean-majority test 140 clean/80 hack): TP=80 FP=140 FN=0 TN=0; P=0.364 R=1.0 F1=0.533; SPECIFICITY=0.000.
+- Flags 100%% of clean laps. Earlier F1=0.727 was a hack-heavy base-rate artifact.
+- Mechanism: best single-invariance discrimination=0.10; I3 fires 100%% on BOTH classes; no invariance separates lap from circle.
+- DIAGNOSIS: framework assumption fails. It detects STATE-DIVERGENT hacking (CoinHack) not TEMPORAL-PATTERN hacking (boat_race: same tiles, different trajectory). Negative result. BOATRACE_REPORT.md written.
+
 ## [18:27] [VALIDATION] All 5 tests complete
 - T1 attribution value: A(IE)=0.667, B(|dh|)=0.607, C(random)=0.425+-0.077; dF1(A-B)=0.060 (just over 0.05 bar), A-meanC=0.242. Modest real causal grounding.
 - T2 confound: 2A length ratio=90.8 (heavy length confound); 2C goal corr w/ goal-dist=-0.19 (weak real signal); hack corr w/ shortcut-dist=+0.06 (none). Both reasons.

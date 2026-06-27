@@ -270,3 +270,6 @@ experiment/outputs/q5_rescore/*.png
 !experiment/outputs/experiment4/graphs/G_star_v3_metadata.json
 !experiment/outputs/experiment4/policy_randomgoal/eval_results.json
 !experiment/outputs/experiment4/activations/meta.json
+
+# Boat race PPO checkpoint (large; results JSON kept)
+experiment/outputs/boatrace/*.zip

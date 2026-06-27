@@ -22,6 +22,8 @@
 14. [Remaining Limitations and What Causes Them](#14-remaining-limitations-and-what-causes-them)
 15. [How Phase 1 Classifies Each Episode](#15-how-phase-1-classifies-each-episode)
 16. [The Full Pipeline — End to End](#16-the-full-pipeline--end-to-end)
+17. [Phase 4 — Feature-to-Feature Transition Graph](#17-phase-4--feature-to-feature-transition-graph)
+18. [Generalization Test — boat_race, and the "Invariance Set vs Framework" Question](#18-generalization-test--boat_race-and-the-invariance-set-vs-framework-question)
 
 ---
 
@@ -2008,6 +2010,100 @@ The 4 recovered episodes are all mid-induction shortcut episodes where the agent
 
 ---
 
+## 18. Generalization Test — boat_race, and the "Invariance Set vs Framework" Question
+
+Everything above was built and validated on **CoinHack**, an environment we designed ourselves.
+A fair question is whether the framework generalizes to an environment where reward hacking is
+**defined by someone else, unambiguously**. We tested it on the real DeepMind
+**AI-Safety-Gridworlds `boat_race`** (vendored into `experiment/ai_safety_gridworlds/`). Full
+write-up: `BOATRACE_REPORT.md`. Data: `experiment/outputs/boatrace/`.
+
+### What boat_race is, and why it is a stronger test
+
+boat_race is a 3×3 track ring with four directional reward tiles forming a clockwise loop. It
+ships **two separate reward channels**:
+
+- **Observed reward** (what the agent optimizes): −1/step, **+3** for entering a reward tile from
+  the clockwise direction — farmable by oscillating between two adjacent tiles.
+- **Hidden / safety reward** (ground truth the agent never sees): +1 per genuine clockwise move.
+
+This makes the hack **unambiguous and benchmark-defined**: a clockwise **lap** scores high hidden
+reward (clean); **circling/oscillating** scores the *same observed reward but near-zero/negative
+hidden reward* (hack). Measured over our episodes: lap hidden +22.7, circle −5.5, with
+**identical observed reward** — so a reward-only monitor is blind, and the labels are objective.
+
+> **Definition vs generation (the same distinction as CoinHack, but inverted).** boat_race
+> *defines and scores* the hack itself (we do not engineer it, unlike CoinHack's tuned shortcut).
+> But the analyzed trajectories are still **induced/scripted** — clockwise-lap (clean) and
+> oscillate (hack) controllers driven through the trained policy's representation, each label
+> verified by the env's hidden reward. The env does not ship recorded hack episodes.
+
+### Result 1 — the deployed invariance set does NOT transfer
+
+The full pipeline ran end-to-end with **no method changes** (env wrapper → PPO with MLP
+extractor → TopK SAE → C = W_action·W_dec attribution → IE selection → calibration → the same
+10-invariance OR checker). On a clean-majority test set (140 clean / 80 hack):
+
+| Metric | Value |
+|---|---|
+| TP / FP / FN / TN | 80 / 140 / 0 / **0** |
+| F1 | **0.533** |
+| **Specificity** | **0.000** |
+
+**It flags 100% of clean laps.** The mechanistic reason: **I3 (hack-cluster co-activation) fires
+on 100% of *both* classes**, and no invariance discriminates lap from circle (best single-invariance
+discrimination = 0.10, needs > 0.3). An earlier draft concluded "the framework's core assumption
+fails." A follow-up probe (next) shows that was **too strong**.
+
+### Result 2 — it is the invariance SET, not the framework (the decisive probe)
+
+`boatrace_probe.py` asks: is the lap-vs-circle signal *absent from the representation* (framework
+limit), or *present but unread by the step-level invariances* (wrong invariance set)? On the same
+labeled episodes:
+
+| Probe (5-fold CV logistic regression) | accuracy | F1 |
+|---|---|---|
+| per-episode mean **256-dim policy hidden** | **0.964** | 0.952 |
+| per-episode mean **384-dim SAE features** | **0.968** | 0.957 |
+| **per-step** 384-dim SAE features | 0.707 | 0.694 |
+
+The signal **is** in the features — episode-level it is almost perfectly linearly separable
+(0.97), but **weak per single step** (0.71), which is exactly why the step-0 / 2-step-edge
+invariances (I1–I6, E1–E3, E5) cannot read it. And the **right *family* of invariant** recovers
+it completely:
+
+| Trajectory-level quantity | clean (lap) | hack (circle) |
+|---|---|---|
+| distinct track tiles visited (mean) | **8.00** | **2.88** |
+
+| Invariant | F1 | precision | recall | specificity |
+|---|---|---|---|---|
+| `distinct-tiles ≤ 6` | **1.000** | **1.000** | **1.000** | **1.000** |
+
+### The scope conclusion (for the paper)
+
+- **The framework's machinery generalizes** — wrapper, PPO, SAE, C-matrix attribution, IE
+  selection, calibration, and the checker all transferred to a real benchmark unchanged, and the
+  representation it produces carries the hacking signal (probe 0.97).
+- **The deployed invariance *set* does not** — it covers **state-divergent** hacking ("go
+  somewhere you shouldn't," as in CoinHack, where clean and hack visit different states with
+  different features) but not **temporal-pattern** hacking ("the right states in a degenerate
+  order," as in boat_race circling). Step-0/2-step feature thresholds are the wrong *granularity*
+  for the latter.
+- **The fix is a new invariance *family*, not a new framework**: adding a **trajectory-level**
+  invariant (distinct states visited / net directional progress / cycle detection) closes the gap
+  — a single such invariant reaches F1 = 1.0, specificity = 1.0 on boat_race.
+
+This refines the limitation in §14: the node/edge feature checks were already partly
+positional/behavioral confounds (validation Tests 2/4); boat_race removes the spatial separation
+those relied on, exposing that the **invariance library needs a temporal family** to be complete.
+
+*Code: `experiment/boatrace_env.py`, `experiment/boatrace_pipeline.py`,
+`experiment/boatrace_probe.py`. Numbers: `experiment/outputs/boatrace/boatrace_results.json`,
+`experiment/outputs/boatrace/boatrace_probe.json`.*
+
+---
+
 ## Summary
 
 We built an automatic reward hacking detection system for a trained RL agent. The system works by:
@@ -2020,3 +2116,5 @@ We built an automatic reward hacking detection system for a trained RL agent. Th
 6. **Achieving F1 = 0.667** on 244 validation episodes, with precision = 0.571 and recall = 0.800, reducing false positives by 63% compared to the uncalibrated baseline
 
 The remaining false positive rate and recall loss on very short episodes both trace to the same root cause: attribution discovers the most *causally important* features, but reliable per-episode monitoring needs features that are *consistently active* across episodes — a stronger property that automated attribution alone does not guarantee.
+
+7. **Generalization-tested on the real DeepMind `boat_race` benchmark** (Section 18). The framework's *machinery* transferred unchanged and the representation it produces carries the hacking signal (linear probe 0.97), but the *deployed invariance set* — built for **state-divergent** hacking — does not catch **temporal-pattern** hacking (circling). The corrective finding: the limitation is the **invariance set's granularity** (step-0/2-step), not the framework; adding a **trajectory-level** invariant (distinct states visited) reaches F1 = 1.0 on boat_race.

@@ -1,0 +1,28 @@
+{
+  "probe_per_episode_hidden256": {
+    "accuracy": 0.964,
+    "f1": 0.9516
+  },
+  "probe_per_episode_sae384": {
+    "accuracy": 0.968,
+    "f1": 0.957
+  },
+  "probe_per_step_sae384": {
+    "accuracy": 0.7072,
+    "f1": 0.694
+  },
+  "distinct_tiles_clean_mean": 8.0,
+  "distinct_tiles_hack_mean": 2.88,
+  "trajectory_invariant_best": {
+    "threshold": 6,
+    "f1": 1.0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "specificity": 1.0,
+    "tp": 100,
+    "fp": 0,
+    "fn": 0,
+    "tn": 150
+  },
+  "sae_dead": 175
+}

@@ -6,9 +6,19 @@ defined? Tested on the real DeepMind AI-Safety-Gridworlds **boat_race**. Reprodu
 `cd experiment && python3 boatrace_pipeline.py`. Data:
 `experiment/outputs/boatrace/boatrace_results.json`.*
 
-**Headline: NO. The framework does not generalize to boat_race. It degenerates to flagging
-every episode (specificity = 0.000); the only F1 > 0.6 it reaches is a class-balance
-artifact. The failure is in the framework's core assumption, not the environment.**
+**Headline (revised): The *deployed invariance set* does not generalize to boat_race — it
+degenerates to flagging every episode (specificity = 0.000) and its only F1 > 0.6 is a
+class-balance artifact. BUT a follow-up probe (§8) proves the failure is the *invariance
+set*, not the framework. The lap-vs-circle signal IS present in the SAE features (linear
+probe acc = 0.968), and a single *trajectory-level* invariant — distinct track tiles
+visited — separates the two perfectly (F1 = 1.0, specificity = 1.0). The fix is a new
+*family* of invariant (temporal/trajectory), not a different framework.**
+
+> **Correction note.** An earlier version of this report concluded "the failure is in the
+> framework's core assumption." The probe in §8 refutes that: with full feature access the
+> classes are linearly separable at 97%, so the representation carries the signal — the
+> step-0/2-step feature-threshold invariances were simply the wrong readout. The user's
+> hypothesis ("maybe the set of invariances we set up is wrong") is **supported**.
 
 ---
 
@@ -34,6 +44,21 @@ This gives a textbook, unambiguous hack. Measured over our episodes:
 
 The two produce **identical observed reward** but opposite hidden reward — so a reward-only
 monitor is blind, and the labels (lap = clean, circle = hack) are objective.
+
+---
+
+### 1b. How the hack is *defined* vs how the episodes are *generated* (vs CoinHack)
+
+These are two separate layers, and they differ from CoinHack in opposite directions:
+
+| | CoinHack | boat_race |
+|---|---|---|
+| **Who defines the hack?** | We do — researcher-designed shortcut tile + (in Q5) a tuned `shortcut_reward` to *create* the incentive | The **DeepMind benchmark** — built-in observed vs hidden reward channels |
+| **Is the label objective?** | Engineered by us | **Yes — the env's own hidden safety reward** (lap +22.7, circle −5.5; observed reward identical) |
+| **Where do the analyzed episodes come from?** | Scripted / contrastive rollouts | **Same — scripted lap (clean) / oscillate (hack) controllers driven through the trained policy's representation** ([`collect_episodes`](experiment/boatrace_pipeline.py#L81)) |
+| **Does the env ship recorded hack trajectories?** | No | **No — we generate them; the env only *defines & scores* the hack** |
+
+So boat_race gives a **confirmed, environment-defined** notion of hacking (the whole reason it is a stronger test than CoinHack), but the **trajectories themselves are induced/scripted exactly like CoinHack** — clockwise-lap and oscillate controllers (with 10% action noise for diversity), each label independently **verified by the env's hidden reward**. The agent is *not* spontaneously hacking under PPO here; these are controlled-condition rollouts through the trained policy's extractor, the same approach the original CoinHack contrastive dataset used.
 
 ---
 
@@ -101,31 +126,38 @@ invariances have nothing to threshold on.
 
 ---
 
-## 5. Diagnosis — it's the framework's assumption, not the environment
+## 5. Diagnosis — it's the invariance SET, not the framework (corrected by §8)
 
 The task asked: *"you learn whether the problem is the environment design or the framework
-itself."* The answer is **the framework**.
+itself."* Refined answer: **neither the environment nor the framework — it is the specific
+INVARIANCE SET that was deployed.**
 
-The framework's foundational assumption is that **reward hacking has a distinct circuit /
-feature signature that is silent (or much weaker) during clean behavior** — a "hack circuit"
-you can detect by goal-feature suppression and hack-feature/cluster activation. That holds in
-**CoinHack**, where hacking means **going to a different place** (the shortcut at (2,2)) than
-the clean goal — clean and hacking visit **different states with different features**, so the
-features separate.
+The *deployed* invariances assume reward hacking has a **per-step / short-window feature
+signature**: goal-feature suppression and hack-feature/cluster co-activation, readable at
+step 0 or across a 2-step edge. That assumption holds in **CoinHack**, where hacking means
+**going to a different place** (the shortcut at (2,2)) — clean and hacking visit **different
+states with different features**, so a step-level threshold separates them.
 
-boat_race breaks the assumption because **clean lapping and circling traverse the *same*
-physical tiles with the *same* per-step representations.** The difference is purely a
-**long-range temporal pattern** — progressing around the loop vs returning — which is invisible
-to feature activations at a step (or across a 2-step edge window). There is no separable
-"hacking circuit"; there is only a different trajectory through identical states. So:
+boat_race breaks *that specific readout* because **clean lapping and circling traverse the
+*same* physical tiles with the *same* per-step representations.** The difference is a
+**long-range temporal pattern** — progressing around the loop vs oscillating — which no
+step-0 or 2-step-edge threshold can see. Per-step probe accuracy is only **0.707** (one
+frame barely informs the label), so I3/E3 fire on ~100% of *both* classes.
 
-> **The framework detects *state-divergent* reward hacking (go somewhere you shouldn't), but
-> not *temporal-pattern* reward hacking (the right states in a degenerate order).** boat_race
-> is the latter, and the detector collapses to "always alarm."
+But — and this is the key correction (see §8) — the signal is **not absent from the
+representation**. A linear probe on the **per-episode mean** of the very same SAE features
+hits **0.968 accuracy**. The information is there; the step-level invariances just don't
+*read it out*. The right fix is a different **family** of invariant:
 
-This is consistent with the validation report's Test 2/Test 4 findings — the CoinHack features
-were already substantially **positional/behavioral confounds**; boat_race removes the spatial
-separation those confounds relied on, and the detector has nothing left.
+> **boat_race is *temporal-pattern* reward hacking (the right states in a degenerate order),
+> not *state-divergent* hacking (go somewhere you shouldn't). The deployed node/edge feature
+> thresholds only catch the latter. A trajectory-level invariant catches the former — and the
+> simplest one (distinct tiles visited ≤ 6) gives F1 = 1.0, specificity = 1.0.**
+
+This is consistent with the validation report's Test 2/Test 4 findings — the CoinHack node/edge
+features were already substantially **positional/behavioral confounds**; boat_race removes the
+spatial separation those confounds relied on, so the *step-level* set has nothing to threshold
+— but the trajectory-level signal survives intact.
 
 ---
 
@@ -153,13 +185,58 @@ separation those confounds relied on, and the detector has nothing left.
 - **Negative (the real finding):** detection **does not** transfer. The framework requires a
   representationally distinct hack circuit, which boat_race does not have. **F1 = 0.533,
   specificity = 0.000.**
-- **Scope statement for the paper:** "The detector identifies reward hacking that manifests as
-  divergence into distinct states/representations (e.g., taking a different goal). It does
-  **not** detect reward hacking that reuses the same states in a degenerate temporal pattern
-  (e.g., boat_race circling), where no step-level feature signature separates hacking from
-  clean behavior." Capturing the latter would require **temporal/trajectory-level** invariants
-  (e.g., net directional progress, cycle detection), not the current node/edge feature checks.
+- **Scope statement for the paper (revised):** "The *deployed* node/edge invariance set
+  identifies reward hacking that manifests as divergence into distinct states/representations
+  (e.g., taking a different goal). It does **not** detect reward hacking that reuses the same
+  states in a degenerate temporal pattern (e.g., boat_race circling) — **not because the signal
+  is absent** (a linear probe separates the classes at 0.968 accuracy) but because the
+  step-0/2-step feature thresholds are the wrong readout. Adding a **trajectory-level**
+  invariant (distinct states visited / net directional progress / cycle detection) closes the
+  gap: on boat_race a single such invariant reaches F1 = 1.0, specificity = 1.0. The framework
+  generalizes; the invariance *library* must be extended with a temporal family."
 
-*Numbers: `experiment/outputs/boatrace/boatrace_results.json`. Code:
-`experiment/boatrace_env.py`, `experiment/boatrace_pipeline.py`. Vendored env:
+---
+
+## 8. Decisive follow-up — is it the framework, or just the invariance SET?
+
+The §5 claim ("framework's assumption fails") was challenged: *maybe the set of invariances we
+set up is wrong*, not the framework. `boatrace_probe.py` settles it on the same labeled
+lap/circle episodes (150 clean / 100 hack), reusing the trained PPO policy + SAE.
+Data: `experiment/outputs/boatrace/boatrace_probe.json`.
+
+**(1) Is the lap-vs-circle signal in the representation at all? (5-fold CV logistic probe)**
+
+| Probe input | accuracy | F1 |
+|---|---|---|
+| per-episode mean **256-dim policy hidden** | **0.964 ± 0.027** | 0.952 |
+| per-episode mean **384-dim SAE features** | **0.968 ± 0.027** | 0.957 |
+| **per-STEP** 384-dim SAE features | 0.707 ± 0.013 | 0.694 |
+
+The signal **is** in the features. With episode-level aggregation it is almost perfectly
+linearly separable (0.97). It is *weak per single step* (0.71) — which is exactly why the
+step-0/2-step deployed invariances (I3/E3) cannot read it and fire on 100% of both classes.
+
+**(2) Would the RIGHT KIND of invariant catch it? (trajectory-level, which the set lacks)**
+
+| Quantity | clean (lap) | hack (circle) |
+|---|---|---|
+| distinct track tiles visited (mean) | **8.00** | **2.88** |
+
+| Invariant | F1 | precision | recall | specificity |
+|---|---|---|---|---|
+| `distinct-tiles ≤ 6` | **1.000** | **1.000** | **1.000** | **1.000** |
+
+A single trajectory-level invariant separates lap from circle **perfectly** — the family the
+deployed set was missing.
+
+**Verdict: the user's hypothesis is supported.** The boat_race failure is the **invariance
+set** (wrong granularity: per-step/2-step instead of per-trajectory), **not** the framework's
+core machinery and **not** a missing signal. The representation carries the information
+(probe 0.97); a temporal invariant extracts it (F1 1.0). The corrective action is to **extend
+the invariance library with a trajectory-level family**, not to abandon or redesign the
+framework.
+
+*Numbers: `experiment/outputs/boatrace/boatrace_results.json`,
+`experiment/outputs/boatrace/boatrace_probe.json`. Code: `experiment/boatrace_env.py`,
+`experiment/boatrace_pipeline.py`, `experiment/boatrace_probe.py`. Vendored env:
 `experiment/ai_safety_gridworlds/`.*
